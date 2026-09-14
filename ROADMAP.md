@@ -43,10 +43,10 @@ This roadmap tracks the experimental port of CrossInk to the first-generation Ki
 - [x] Record the exact starting commits for CrossInk, CrossPoint Reader, FreeInk SDK, and the simulator.
 - [x] Map application code, HAL boundaries, ESP32-only code, FreeRTOS dependencies, and simulator replacements.
 - [x] Define the initial Kindle platform interfaces for display, input, storage, tasks, power, and network.
-- [ ] Create `THIRD_PARTY_NOTICES.md`.
-- [ ] Verify the licenses of all code, libraries, fonts, icons, and build tools expected in distributed packages.
-- [ ] Decide whether FBInk will be linked, invoked as a separate program, or used only as a technical reference.
-- [ ] Record what may be learned from KOReader without copying AGPL-covered implementation.
+- [x] Create `THIRD_PARTY_NOTICES.md`.
+- [x] Verify the licenses of all code, libraries, fonts, icons, and build tools expected in distributed packages.
+- [x] Decide whether FBInk will be linked, invoked as a separate program, or used only as a technical reference.
+- [x] Record what may be learned from KOReader without copying AGPL-covered implementation.
 
 **Exit criterion:** the code baseline and planned architecture are reproducible, and every proposed dependency has a documented license strategy.
 

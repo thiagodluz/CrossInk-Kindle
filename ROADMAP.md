@@ -37,20 +37,22 @@ This roadmap tracks the experimental port of CrossInk to the first-generation Ki
 
 ## Phase 1 — Scope, source baseline, and licensing
 
-**Status: Current**
+**Status: Complete**
 
 - [x] Create `docs/compatibility.md` with every inherited CrossInk feature classified as planned, supported, unsupported, or not applicable.
 - [x] Record the exact starting commits for CrossInk, CrossPoint Reader, FreeInk SDK, and the simulator.
 - [x] Map application code, HAL boundaries, ESP32-only code, FreeRTOS dependencies, and simulator replacements.
 - [x] Define the initial Kindle platform interfaces for display, input, storage, tasks, power, and network.
-- [ ] Create `THIRD_PARTY_NOTICES.md`.
-- [ ] Verify the licenses of all code, libraries, fonts, icons, and build tools expected in distributed packages.
-- [ ] Decide whether FBInk will be linked, invoked as a separate program, or used only as a technical reference.
-- [ ] Record what may be learned from KOReader without copying AGPL-covered implementation.
+- [x] Create `THIRD_PARTY_NOTICES.md`.
+- [x] Verify the licenses of all code, libraries, fonts, icons, and build tools expected in distributed packages.
+- [x] Decide whether FBInk will be linked, invoked as a separate program, or used only as a technical reference.
+- [x] Record what may be learned from KOReader without copying AGPL-covered implementation.
 
 **Exit criterion:** the code baseline and planned architecture are reproducible, and every proposed dependency has a documented license strategy.
 
 ## Phase 2 — PW1 hardware and system diagnostics
+
+**Status: Current**
 
 - [ ] Create a read-only diagnostic script for jailbroken PW1 devices.
 - [ ] Detect the Kindle model, firmware, CPU architecture, kernel, libc, and available shared libraries.

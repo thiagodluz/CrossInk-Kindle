@@ -39,7 +39,7 @@ This roadmap tracks the experimental port of CrossInk to the first-generation Ki
 
 **Status: Current**
 
-- [ ] Create `docs/compatibility.md` with every inherited CrossInk feature classified as planned, supported, unsupported, or not applicable.
+- [x] Create `docs/compatibility.md` with every inherited CrossInk feature classified as planned, supported, unsupported, or not applicable.
 - [ ] Record the exact starting commits for CrossInk, CrossPoint Reader, FreeInk SDK, and the simulator.
 - [ ] Map application code, HAL boundaries, ESP32-only code, FreeRTOS dependencies, and simulator replacements.
 - [ ] Define the initial Kindle platform interfaces for display, input, storage, tasks, power, and network.

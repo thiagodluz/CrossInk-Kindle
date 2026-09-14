@@ -50,7 +50,7 @@ The first milestones are deliberately small and hardware-focused:
 8. Add network features such as OPDS and reading progress sync.
 9. Package, document, and test a removable and reversible preview release.
 
-Track detailed progress and milestone criteria in the [project roadmap](./ROADMAP.md), review the intended PW1 feature scope in the [compatibility matrix](./docs/compatibility.md), and consult the exact upstream revisions in the [source baseline](./docs/source-baseline.md).
+Track detailed progress and milestone criteria in the [project roadmap](./ROADMAP.md), review the intended PW1 feature scope in the [compatibility matrix](./docs/compatibility.md), consult the exact upstream revisions in the [source baseline](./docs/source-baseline.md), and see the planned backend boundaries in the [Kindle platform architecture](./docs/kindle-platform-architecture.md).
 
 ## Architecture
 

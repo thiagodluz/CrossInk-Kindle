@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-14",
+  "target": "kindle-paperwhite-1",
+  "application_baseline": {
+    "name": "CrossInk",
+    "repository": "https://github.com/uxjulia/CrossInk",
+    "ref": "main",
+    "commit": "4f2da6b7777b9a38fdf2606796d6da34caa7d2cb"
+  },
+  "gitlinks": [
+    {
+      "path": "freeink-sdk",
+      "repository": "https://github.com/Free-Ink/freeink-sdk",
+      "ref": "main",
+      "commit": "9f4d3f9ca675e64cc9d616081f39a33cdefce57e"
+    }
+  ],
+  "external_references": [
+    {
+      "name": "CrossInk Simulator",
+      "repository": "https://github.com/uxjulia/crossink-simulator",
+      "ref": "main",
+      "commit": "95be4c2e546d6e88625fb33c31478893d4f06f1b",
+      "role": "native-platform-reference"
+    },
+    {
+      "name": "CrossPoint Reader",
+      "repository": "https://github.com/crosspoint-reader/crosspoint-reader",
+      "ref": "develop-history",
+      "commit": "6e8dbd7f239eb562daa5de81362c0025ce833dd8",
+      "role": "fork-network-common-ancestor"
+    }
+  ]
+}

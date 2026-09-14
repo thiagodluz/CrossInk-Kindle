@@ -50,7 +50,7 @@ The first milestones are deliberately small and hardware-focused:
 8. Add network features such as OPDS and reading progress sync.
 9. Package, document, and test a removable and reversible preview release.
 
-A detailed roadmap and device test procedure will be added as implementation begins.
+Track detailed progress, milestone criteria, and the current development phase in the [project roadmap](./ROADMAP.md).
 
 ## Architecture
 

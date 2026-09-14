@@ -89,4 +89,4 @@ The Kindle port is an independent experimental project and is not an official Cr
 
 The inherited CrossInk and CrossPoint Reader code is distributed under the [MIT License](./LICENSE). Original copyright and license notices are preserved.
 
-Additional Kindle-specific dependencies may use different licenses. Their notices and source-distribution requirements will be documented before binary releases are published.
+The dependency choices, source-distribution policy, and reference-only boundaries are recorded in the [licensing strategy](./docs/licensing.md). Package notices are tracked in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and must be reviewed again before every binary release.

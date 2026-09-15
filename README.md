@@ -25,7 +25,7 @@ Support for other Kindle models may be considered after the PW1 port becomes sta
 
 | Area | Status |
 | --- | --- |
-| Kindle environment diagnostics | Planned |
+| Kindle environment diagnostics | Ready for device test |
 | Reproducible ARM build | Planned |
 | E-ink display backend | Planned |
 | Touch input | Planned |
@@ -50,7 +50,7 @@ The first milestones are deliberately small and hardware-focused:
 8. Add network features such as OPDS and reading progress sync.
 9. Package, document, and test a removable and reversible preview release.
 
-Track detailed progress and milestone criteria in the [project roadmap](./ROADMAP.md), review the intended PW1 feature scope in the [compatibility matrix](./docs/compatibility.md), consult the exact upstream revisions in the [source baseline](./docs/source-baseline.md), and see the planned backend boundaries in the [Kindle platform architecture](./docs/kindle-platform-architecture.md).
+Track detailed progress and milestone criteria in the [project roadmap](./ROADMAP.md), review the intended PW1 feature scope in the [compatibility matrix](./docs/compatibility.md), consult the exact upstream revisions in the [source baseline](./docs/source-baseline.md), see the planned backend boundaries in the [Kindle platform architecture](./docs/kindle-platform-architecture.md), and run the [PW1 diagnostics](./docs/pw1-diagnostics.md) before device-specific implementation.
 
 ## Architecture
 

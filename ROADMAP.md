@@ -54,7 +54,7 @@ This roadmap tracks the experimental port of CrossInk to the first-generation Ki
 
 **Status: Current**
 
-- [ ] Create a read-only diagnostic script for jailbroken PW1 devices.
+- [x] Create a read-only diagnostic script for jailbroken PW1 devices.
 - [ ] Detect the Kindle model, firmware, CPU architecture, kernel, libc, and available shared libraries.
 - [ ] Inspect framebuffer resolution, pixel format, rotation, stride, and refresh interfaces.
 - [ ] Identify touchscreen input devices, event formats, coordinate range, and orientation.

@@ -22,6 +22,13 @@ struct SectionBuildOptions {
   bool (*shouldCancel)(void* context) = nullptr;
   void* cancelContext = nullptr;
   bool* cancellationObserved = nullptr;
+  // Stable-page coordinates stay in the manifest's word/character units until
+  // the parser knows the spine's source-text length. This avoids treating page
+  // density as uniform when selecting the rendered screen.
+  uint32_t referenceUnitOffset = 0;
+  uint32_t referenceUnitCount = 0;
+  bool referenceUnitsAreCharacters = false;
+  uint16_t* resolvedReferencePage = nullptr;
 
   bool isPreview() const { return previewAnchor && previewAnchor[0] != '\0' && previewMaxPages > 0; }
   bool isCancellationRequested() const { return shouldCancel && shouldCancel(cancelContext); }
@@ -61,6 +68,7 @@ class Section {
   bool lastImagesWereSuppressed_ = false;
   bool lastLayoutAbortedForLowMemory_ = false;
   uint16_t imageEstimateViewportHeight_ = 0;
+  uint16_t imageEstimateViewportWidth_ = 0;
   uint32_t protectedImageUnits_ = 0;
   // Pages laid out by the active build. Distinct from pageCount, which is the pages
   // available to read and may include a loaded partial file's pages.

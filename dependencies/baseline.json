@@ -1,19 +1,24 @@
 {
   "schema_version": 1,
-  "recorded_at": "2026-09-14",
+  "recorded_at": "2026-10-06",
   "target": "kindle-paperwhite-1",
   "application_baseline": {
     "name": "CrossInk",
     "repository": "https://github.com/uxjulia/CrossInk",
     "ref": "main",
-    "commit": "4f2da6b7777b9a38fdf2606796d6da34caa7d2cb"
+    "commit": "9914146eeae7b46b300f475a16c32426fc02ec1f",
+    "previous_commit": "4f2da6b7777b9a38fdf2606796d6da34caa7d2cb",
+    "version": "1.6.1",
+    "synced_at": "2026-10-06"
   },
   "gitlinks": [
     {
       "path": "freeink-sdk",
       "repository": "https://github.com/Free-Ink/freeink-sdk",
       "ref": "main",
-      "commit": "9f4d3f9ca675e64cc9d616081f39a33cdefce57e"
+      "commit": "699370183fa3a0e33c9cb83a36f701bbb6022095",
+      "previous_commit": "9f4d3f9ca675e64cc9d616081f39a33cdefce57e",
+      "synced_at": "2026-10-06"
     }
   ],
   "external_references": [

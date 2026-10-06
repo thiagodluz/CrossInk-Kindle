@@ -12,7 +12,7 @@ Copyright (c) 2025 Dave Allie
 
 Licensed under the MIT License. The full inherited license text is in [`LICENSE`](./LICENSE).
 
-- CrossInk baseline: [`4f2da6b7777b9a38fdf2606796d6da34caa7d2cb`](https://github.com/uxjulia/CrossInk/commit/4f2da6b7777b9a38fdf2606796d6da34caa7d2cb)
+- CrossInk baseline: [`9914146eeae7b46b300f475a16c32426fc02ec1f`](https://github.com/uxjulia/CrossInk/commit/9914146eeae7b46b300f475a16c32426fc02ec1f)
 - CrossPoint Reader divergence point: [`6e8dbd7f239eb562daa5de81362c0025ce833dd8`](https://github.com/crosspoint-reader/crosspoint-reader/commit/6e8dbd7f239eb562daa5de81362c0025ce833dd8)
 
 ## FreeInk SDK
@@ -21,9 +21,9 @@ Copyright (c) 2026 FreeInk
 
 Licensed under the MIT License.
 
-Pinned source: [`9f4d3f9ca675e64cc9d616081f39a33cdefce57e`](https://github.com/Free-Ink/freeink-sdk/commit/9f4d3f9ca675e64cc9d616081f39a33cdefce57e).
+Pinned source: [`699370183fa3a0e33c9cb83a36f701bbb6022095`](https://github.com/Free-Ink/freeink-sdk/commit/699370183fa3a0e33c9cb83a36f701bbb6022095).
 
-If a release includes FreeInk SDK source or compiled portions, retain the upstream [LICENSE](https://github.com/Free-Ink/freeink-sdk/blob/9f4d3f9ca675e64cc9d616081f39a33cdefce57e/LICENSE) and [NOTICE](https://github.com/Free-Ink/freeink-sdk/blob/9f4d3f9ca675e64cc9d616081f39a33cdefce57e/NOTICE). Its NOTICE credits the OpenX4 E-Paper Community SDK, community device ports, CidVonHighwind, and the inherited SSD1677/UC8253 initialization and waveform work.
+If a release includes FreeInk SDK source or compiled portions, retain the upstream [LICENSE](https://github.com/Free-Ink/freeink-sdk/blob/699370183fa3a0e33c9cb83a36f701bbb6022095/LICENSE) and [NOTICE](https://github.com/Free-Ink/freeink-sdk/blob/699370183fa3a0e33c9cb83a36f701bbb6022095/NOTICE). Its NOTICE credits the OpenX4 E-Paper Community SDK, community device ports, CidVonHighwind, and the inherited SSD1677/UC8253 initialization and waveform work.
 
 ## CrossInk Simulator
 
@@ -45,6 +45,18 @@ Retain the corresponding `OFL.txt` file with any shipped font:
 
 - [Noto Sans OFL](./lib/EpdFont/builtinFonts/source/NotoSans/OFL.txt)
 - [Noto Sans Arabic OFL](./lib/EpdFont/builtinFonts/source/NotoSansArabic/OFL.txt)
+
+## Additional CrossInk scalable fonts
+
+CrossInk v1.6.1 adds scalable font assets to the source tree. Retain each font's matching license notice when distributing the font or binaries containing it:
+
+- Bitter — [`Bitter-OFL.txt`](./lib/EpdFont/scalableFonts/licenses/Bitter-OFL.txt)
+- ChareInk 7 — [`ChareInk7-OFL.txt`](./lib/EpdFont/scalableFonts/licenses/ChareInk7-OFL.txt)
+- Lexend Deca — [`LexendDeca-OFL.txt`](./lib/EpdFont/scalableFonts/licenses/LexendDeca-OFL.txt)
+- Noto Sans CJK SC — [`NotoSansCJKsc-OFL.txt`](./lib/EpdFont/scalableFonts/licenses/NotoSansCJKsc-OFL.txt)
+- Noto Symbols — [`NotoSymbols.txt`](./lib/EpdFont/scalableFonts/licenses/NotoSymbols.txt)
+
+These are inherited upstream assets; their presence in this source baseline does not mean they are part of a Kindle build/package.
 
 ## Tabler Icons
 

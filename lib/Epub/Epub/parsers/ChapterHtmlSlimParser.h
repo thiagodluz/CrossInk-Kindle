@@ -5,6 +5,7 @@
 #include <ZipFile.h>
 #include <expat.h>
 
+#include <array>
 #include <climits>
 #include <functional>
 #include <memory>
@@ -35,12 +36,13 @@ class ChapterHtmlSlimParser {
   static constexpr uint16_t MAX_SIMPLE_TABLE_CELL_WORDS = 160;
   static constexpr uint8_t TABLE_CELL_PADDING = 6;
   static constexpr size_t MAX_INLINE_STYLE_DEPTH = 64;
+  static constexpr size_t MAX_PENDING_INLINE_IMAGES = 16;
   static constexpr size_t MAX_BLOCK_STYLE_DEPTH = 16;
 
   Epub* epub;
   const std::string& filepath;
   GfxRenderer& renderer;
-  std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t, uint32_t)> completePageFn;
+  std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t, uint32_t, uint32_t)> completePageFn;
   std::function<void()> popupFn;  // Popup callback
   int depth = 0;
   int skipUntilDepth = INT_MAX;
@@ -57,6 +59,14 @@ class ChapterHtmlSlimParser {
   int partWordBufferIndex = 0;
   uint32_t partWordVisibleOffset = 0;
   uint32_t visibleTextOffset = 0;
+  uint32_t partWordReferenceOffset = 0;
+  int16_t partWordInlinePadding = 0;
+  int16_t pendingInlinePadding = 0;
+  uint32_t referenceTextOffset = 0;
+  bool referenceTextStarted = false;
+  bool referenceWhitespacePending = false;
+  bool trackReferenceCharacters = false;
+  int referenceExcludedUntilDepth = INT_MAX;
   uint16_t currentTextRunBytes = 0;
   bool nextWordContinues = false;  // true when next flushed word attaches to previous (inline element boundary)
   std::unique_ptr<ParsedText> currentTextBlock = nullptr;
@@ -68,8 +78,13 @@ class ChapterHtmlSlimParser {
   std::unique_ptr<Page> currentPage = nullptr;
   int16_t currentPageNextY = 0;
   uint32_t currentPageVisibleOffset = 0;
+  uint32_t currentPageReferenceOffset = 0;
   bool currentPageVisibleOffsetSet = false;
   int fontId;
+  uint16_t rootFontScale = 256;
+  std::array<int, MAX_BLOCK_STYLE_DEPTH> blockStyleDepths_{};
+  int currentTextFontId() const;
+  void applyBlockFontSize(const CssStyle& cssStyle, const char* tag, BlockStyle& style);
   float lineCompression;
   bool extraParagraphSpacing;
   bool forceParagraphIndents;
@@ -86,6 +101,12 @@ class ChapterHtmlSlimParser {
   std::string contentBase;
   std::string imageBasePath;
   int imageCounter = 0;
+  struct PendingInlineImage {
+    uint16_t id;
+    std::unique_ptr<ImageBlock> block;
+  };
+  std::vector<PendingInlineImage> pendingInlineImages;
+  uint16_t nextInlineImageId = 1;
   bool lowMemoryImageFallback = false;
   bool lowMemoryAbort = false;
   bool attemptedTextLayoutFontCacheRelease = false;
@@ -108,6 +129,9 @@ class ChapterHtmlSlimParser {
   uint32_t parseStartTime_ = 0;
 
   bool ensureInputFileOpen();
+  uint32_t consumeReferenceCodepoint(uint32_t codepoint);
+  void consumeReferenceCharacters(const XML_Char* text, int length);
+  void clearReferenceExclusionIfClosed();
 
   // Style tracking (replaces depth-based approach)
   struct StyleStackEntry {
@@ -182,6 +206,14 @@ class ChapterHtmlSlimParser {
   int tableRowIndex = 0;
   int tableColIndex = 0;
   int pendingListMarkerDepth = -1;
+  struct ListContext {
+    bool ordered = false;
+    bool styleNone = false;
+    int32_t nextValue = 1;
+    int depth = 0;
+  };
+  std::array<ListContext, MAX_BLOCK_STYLE_DEPTH> listContexts_{};
+  size_t listContextCount_ = 0;
   bool currentTableCellIsHeader = false;
   uint8_t currentTableCellColSpan = 1;
   uint32_t currentTableCellVisibleOffset = 0;
@@ -235,12 +267,13 @@ class ChapterHtmlSlimParser {
   void addPendingPublisherPageMarker(const char* label);
   void attachPendingPublisherPageMarkers(int yPos);
   void flushPartWordBuffer();
-  void flushLongTextRunIfNeeded(bool force = false);
+  void queueInlinePadding(const CssStyle& cssStyle);
+  void flushLongTextRunIfNeeded(bool force = false, bool flushLastLine = false);
   size_t bufferedWordsBeforeLayoutLimit() const;
   uint16_t textRunBytesBeforeLayoutLimit() const;
   void markCurrentPageFromCurrentTextBlock();
   void markCurrentPageFromCurrentElement();
-  void setCurrentPageVisibleOffset(uint32_t offset);
+  void setCurrentPageVisibleOffset(uint32_t offset, uint32_t referenceOffset = UINT32_MAX);
   void completeCurrentPage();
   void makePages();
   int effectiveLineHeight() const;
@@ -255,6 +288,7 @@ class ChapterHtmlSlimParser {
   bool isLightMode() const { return renderMode == EpubRenderMode::Light; }
   bool honorsPublisherDecorations() const { return renderMode != EpubRenderMode::Light; }
   void pushCssAncestor(int depth, const char* tag, std::string_view classAttr);
+  void pushBlockFontStyle(const CssStyle& cssStyle);
   static void applyDirectionToEntry(StyleStackEntry& entry, const CssStyle& css);
   static void applySmallCapsToEntry(StyleStackEntry& entry, const CssStyle& css);
   static void applyVerticalAlignToEntry(StyleStackEntry& entry, const CssStyle& css);
@@ -289,16 +323,19 @@ class ChapterHtmlSlimParser {
       const bool extraParagraphSpacing, const bool forceParagraphIndents, const uint8_t paragraphAlignment,
       const uint16_t viewportWidth, const uint16_t viewportHeight, const bool hyphenationEnabled,
       const bool focusReadingEnabled, const bool guideReadingEnabled, const uint8_t wordSpacing,
-      const std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t, uint32_t)>& completePageFn,
+      const std::function<void(std::unique_ptr<Page>, uint16_t, uint16_t, uint32_t, uint32_t)>& completePageFn,
       const bool embeddedStyle, const std::string& contentBase, const std::string& imageBasePath,
       const uint8_t imageRendering = 0, std::vector<std::string> tocAnchors = {},
       const std::function<void()>& popupFn = nullptr, CssParser* cssParser = nullptr,
       const EpubRenderMode renderMode = EpubRenderMode::CrossInkDefault, std::string previewAnchor = {},
-      const uint16_t previewMaxPages = 0)
+      const uint16_t previewMaxPages = 0, const bool trackReferenceCharacters = false)
 
       : epub(&epub),
         filepath(filepath),
         renderer(renderer),
+        completePageFn(completePageFn),
+        popupFn(popupFn),
+        trackReferenceCharacters(trackReferenceCharacters),
         fontId(fontId),
         lineCompression(lineCompression),
         extraParagraphSpacing(extraParagraphSpacing),
@@ -310,19 +347,18 @@ class ChapterHtmlSlimParser {
         focusReadingEnabled(focusReadingEnabled),
         guideReadingEnabled(guideReadingEnabled),
         wordSpacing(wordSpacing > 4 ? 4 : wordSpacing),
-        completePageFn(completePageFn),
-        popupFn(popupFn),
         cssParser(cssParser),
         embeddedStyle(embeddedStyle),
         imageRendering(imageRendering),
+        contentBase(contentBase),
+        imageBasePath(imageBasePath),
         renderMode(renderMode),
         previewAnchor(std::move(previewAnchor)),
         previewMaxPages(previewMaxPages),
-        contentBase(contentBase),
-        imageBasePath(imageBasePath),
         tocAnchors(std::move(tocAnchors)) {}
 
   ~ChapterHtmlSlimParser();
+  uint32_t getVisibleTextLength() const { return visibleTextOffset; }
   bool parseAndBuildPages();
   bool beginParse();
   ParseStatus parseStep();
@@ -330,7 +366,7 @@ class ChapterHtmlSlimParser {
   void abortParse();   // tear down without flushing (error / abandon)
   void releaseInputFile();
 
-  void addLineToPage(std::shared_ptr<TextBlock> line, uint32_t visibleOffset);
+  void addLineToPage(std::shared_ptr<TextBlock> line, uint32_t visibleOffset, uint32_t referenceOffset);
   const std::vector<std::pair<std::string, uint16_t>>& getAnchors() const { return anchorData; }
   bool wasLowMemoryFallbackTriggered() const { return lowMemoryImageFallback; }
   bool wasLowMemoryAbortTriggered() const { return lowMemoryAbort; }

@@ -2,6 +2,7 @@
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <SdCardFont.h>
+#include <TouchReaderPreviewModel.h>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -17,6 +18,7 @@ struct RasterFont {
   EpdFont font{&data};
   explicit RasterFont(int size) {
     for (auto [first, last] : {std::pair{32u, 127u},
+                               {0xB7u, 0xB7u},
                                {0x300u, 0x36Fu},
                                {0x590u, 0x6FFu},
                                {0x4E00u, 0x4E20u},
@@ -157,6 +159,41 @@ TEST(EpubTextGrayscaleTest, RealTextRasterMatchesFullAndStripTargets) {
 }
 }  // namespace
 
+TEST(EpubTextRaster, VariationSelectorsDoNotDrawOrAdvance) {
+  for (const bool sd : {false, true}) {
+    SCOPED_TRACE(testing::Message() << "sd=" << sd);
+    fakeheap::reset(true);
+    Storage.reset();
+    RasterFont fixture(12);
+    SdCardFont sdFont;
+    HalDisplay display;
+    GfxRenderer renderer(display);
+    renderer.begin();
+    if (sd) {
+      Storage.put("font.cpfont", fixture.file());
+      ASSERT_TRUE(sdFont.load("font.cpfont"));
+      renderer.insertFont(1, EpdFontFamily(sdFont.getEpdFont()));
+      renderer.registerSdCardFont(1, &sdFont);
+    } else {
+      renderer.insertFont(1, EpdFontFamily(&fixture.font));
+    }
+
+    const auto render = [&renderer, &display](const char* text) {
+      renderer.clearScreen();
+      renderer.drawText(1, 25, 40, text);
+      return display.bw;
+    };
+
+    const auto base = render("!");
+    const int baseAdvance = renderer.getTextAdvanceX(1, "!", EpdFontFamily::REGULAR);
+    for (const char* text : {"!\xE1\xA0\x8B", "!\xEF\xB8\x8E", "!\xEF\xB8\x8F"}) {  // U+180B/U+FE0E/U+FE0F
+      EXPECT_EQ(renderer.getTextAdvanceX(1, text, EpdFontFamily::REGULAR), baseAdvance);
+      EXPECT_EQ(render(text), base);
+    }
+    renderer.removeFont(1);
+  }
+}
+
 TEST(AbsoluteImageRaster, TextMatchesBlackWhiteInBothPlanesAndCancellationResetsMode) {
   fakeheap::reset(true);
   Storage.reset();
@@ -235,4 +272,51 @@ TEST(AbsoluteImageRaster, BitmapPlanesPreserveFourTonesAndWhiteMargins) {
   renderer.setRenderMode(GfxRenderer::BW);
   EXPECT_EQ(display.canceled, 1);
   file.close();
+}
+
+// A font switch begins with no resident glyphs. A wide replacement glyph makes
+// the cold scan fit fewer words than the final, correctly measured preview.
+TEST(EpubTextGrayscaleTest, ColdSdSamplePreviewMatchesFullyLoadedFont) {
+  for (int size : {12, 20}) {
+    for (int width : {160, 280}) {
+      for (bool focus : {false, true}) {
+        for (bool guide : {false, true}) {
+          SCOPED_TRACE(testing::Message() << size << " width=" << width << " focus=" << focus << " guide=" << guide);
+          fakeheap::reset(false);
+          Storage.reset();
+          RasterFont fixture(size);
+          fixture.glyphs.back().advanceX = size * 16 * 4;
+          SdCardFont sdFont;
+          Storage.put("preview.cpfont", fixture.file());
+          ASSERT_TRUE(sdFont.load("preview.cpfont"));
+          HalDisplay display;
+          GfxRenderer renderer(display);
+          renderer.begin();
+          renderer.insertFont(1, EpdFontFamily(sdFont.getEpdFont()));
+          renderer.registerSdCardFont(1, &sdFont);
+          renderer.insertFont(2, EpdFontFamily(&fixture.font));
+          FontCacheManager cache(renderer.getFontMap(), renderer.getSdCardFonts());
+          renderer.setFontCacheManager(&cache);
+          SampleReaderPreviewModel model;
+          ASSERT_TRUE(model.captureParagraph(READER_PREVIEW_PARAGRAPH));
+          auto draw = [&](int font) {
+            model.renderText(renderer, font, 10, 10, width, 100, 0, static_cast<uint8_t>(CssTextAlign::Left), focus,
+                             guide, true, 85);
+          };
+          renderer.clearScreen();
+          draw(2);
+          const auto expected = display.bw;
+          renderer.clearScreen();
+          const auto blank = display.bw;
+          auto scope = cache.createPrewarmScope();
+          draw(1);
+          EXPECT_EQ(display.bw, blank);  // Scanning must not paint the display.
+          ASSERT_TRUE(scope.endScanAndPrewarm());
+          draw(1);
+          EXPECT_NE(display.bw, blank);
+          EXPECT_TRUE(display.bw == expected);
+        }
+      }
+    }
+  }
 }

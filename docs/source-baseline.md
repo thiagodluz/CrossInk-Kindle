@@ -1,6 +1,6 @@
 # Source Baseline
 
-This document records the immutable source baseline selected for the first-generation Kindle Paperwhite port. Full commit SHAs are used so builds, investigations, upstream synchronization, and regressions can be reproduced without relying on moving branch names.
+This document records the synchronized CrossInk source baseline selected for the first-generation Kindle Paperwhite port. Full commit SHAs are used so builds, investigations, upstream synchronization, and regressions can be reproduced without relying on moving branch names.
 
 ## Repository genealogy
 
@@ -14,8 +14,8 @@ crosspoint-reader/crosspoint-reader
 
 | Source | Repository | Role | Recorded ref | Immutable commit |
 | --- | --- | --- | --- | --- |
-| CrossInk | [uxjulia/CrossInk](https://github.com/uxjulia/CrossInk) | Application baseline inherited by this fork | `main` | [`4f2da6b7777b9a38fdf2606796d6da34caa7d2cb`](https://github.com/uxjulia/CrossInk/commit/4f2da6b7777b9a38fdf2606796d6da34caa7d2cb) |
-| FreeInk SDK | [Free-Ink/freeink-sdk](https://github.com/Free-Ink/freeink-sdk) | Git submodule used by the application baseline | `main` | [`9f4d3f9ca675e64cc9d616081f39a33cdefce57e`](https://github.com/Free-Ink/freeink-sdk/commit/9f4d3f9ca675e64cc9d616081f39a33cdefce57e) |
+| CrossInk | [uxjulia/CrossInk](https://github.com/uxjulia/CrossInk) | Application baseline inherited by this fork | `main` | [`9914146eeae7b46b300f475a16c32426fc02ec1f`](https://github.com/uxjulia/CrossInk/commit/9914146eeae7b46b300f475a16c32426fc02ec1f) |
+| FreeInk SDK | [Free-Ink/freeink-sdk](https://github.com/Free-Ink/freeink-sdk) | Git submodule used by the application baseline | `main` | [`699370183fa3a0e33c9cb83a36f701bbb6022095`](https://github.com/Free-Ink/freeink-sdk/commit/699370183fa3a0e33c9cb83a36f701bbb6022095) |
 | CrossInk Simulator | [uxjulia/crossink-simulator](https://github.com/uxjulia/crossink-simulator) | External native-platform reference for initial port work | `main` | [`95be4c2e546d6e88625fb33c31478893d4f06f1b`](https://github.com/uxjulia/crossink-simulator/commit/95be4c2e546d6e88625fb33c31478893d4f06f1b) |
 | CrossPoint Reader | [crosspoint-reader/crosspoint-reader](https://github.com/crosspoint-reader/crosspoint-reader) | Fork-network origin and CrossInk divergence point | `develop` history | [`6e8dbd7f239eb562daa5de81362c0025ce833dd8`](https://github.com/crosspoint-reader/crosspoint-reader/commit/6e8dbd7f239eb562daa5de81362c0025ce833dd8) |
 
@@ -25,23 +25,25 @@ The machine-readable form of this table is in [`dependencies/baseline.json`](../
 
 ### CrossInk
 
-Commit `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` is the actual CrossInk commit inherited before Kindle-specific documentation was added. It is the application baseline against which the port's changes and future upstream synchronization are measured.
+The repository originally diverged from CrossInk at `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb`. This synchronization advances the application baseline to CrossInk v1.6.1 at `9914146eeae7b46b300f475a16c32426fc02ec1f`. It records the current code for future work; it does not claim that this version has been built for or tested on the Kindle Paperwhite.
 
 Recorded upstream metadata:
 
-- authored on 2026-09-11;
-- commit message: `Update release manifests for v1.5.1`;
-- tree: `4679b952e6c8662269c5cdaf48b6560db48d21af`.
+- authored on 2026-10-04;
+- commit message: `Update release manifests for v1.6.1`;
+- tree: `10f259e783f33f9889a97da614fe5cdac9187828`;
+- previous recorded source: `4f2da6b7777b9a38fdf2606796d6da34caa7d2cb` (CrossInk v1.5.1).
 
 ### FreeInk SDK
 
-The CrossInk baseline records `freeink-sdk` as a Git gitlink at commit `9f4d3f9ca675e64cc9d616081f39a33cdefce57e`. It is therefore a pinned source dependency, not merely the current head of the SDK's `main` branch.
+The CrossInk baseline records `freeink-sdk` as a Git gitlink at commit `699370183fa3a0e33c9cb83a36f701bbb6022095`. It is therefore a pinned source dependency, not merely the current head of the SDK's `main` branch.
 
 Recorded upstream metadata:
 
-- authored on 2026-09-10;
-- commit message: `Merge pull request #71 from oreglio/feat/list-item-section-heading`;
-- tree: `d226e528b056cbe6b3e090425e0e5eb5b49830a7`.
+- authored on 2026-10-02;
+- commit message: `Refactor UC8179/UC8279 chip detection into functions`;
+- tree: `5d1603660277f58226f96ef2fb20a55eab577743`;
+- previous recorded SDK source: `9f4d3f9ca675e64cc9d616081f39a33cdefce57e`.
 
 ### CrossInk Simulator
 
@@ -72,15 +74,15 @@ At the CrossInk baseline, the root tree contains one gitlink: `freeink-sdk`. The
 After checking out this repository with submodules, the recorded state can be inspected with:
 
 ```sh
-git show --no-patch --format=fuller 4f2da6b7777b9a38fdf2606796d6da34caa7d2cb
-git ls-tree 4f2da6b7777b9a38fdf2606796d6da34caa7d2cb freeink-sdk
+git show --no-patch --format=fuller 9914146eeae7b46b300f475a16c32426fc02ec1f
+git ls-tree 9914146eeae7b46b300f475a16c32426fc02ec1f freeink-sdk
 git submodule status --recursive
 ```
 
 Expected `git ls-tree` output for the SDK path:
 
 ```text
-160000 commit 9f4d3f9ca675e64cc9d616081f39a33cdefce57e	freeink-sdk
+160000 commit 699370183fa3a0e33c9cb83a36f701bbb6022095	freeink-sdk
 ```
 
 ## Update policy

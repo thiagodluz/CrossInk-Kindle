@@ -37,7 +37,7 @@ void EndOfBookOptions::loadOnce(const std::string& currentBookPath) {
   }
   folder = FsHelpers::extractFolderPath(currentBookPath);
   names = NextBookFinder::findNextBooks(currentBookPath, MAX_SUGGESTIONS);
-  selector = 0;
+  selector.store(0, std::memory_order_relaxed);
   if (!names.empty()) {
     rowLabels.reserve(names.size() + 1);
     std::transform(names.begin(), names.end(), std::back_inserter(rowLabels), displayName);
@@ -72,7 +72,7 @@ std::string EndOfBookOptions::fullPath(const size_t index) const {
 void EndOfBookOptions::onRowEvent(const fui::ActionEvent& event, void* user) {
   auto* self = static_cast<EndOfBookOptions*>(user);
   if (event.value < 0 || event.value > static_cast<int16_t>(self->names.size())) return;
-  self->selector = event.value;
+  self->selector.store(event.value, std::memory_order_relaxed);
   // The tapped row leaves this screen (open book or home); a lingering flash
   // would gray an unrelated element on the next render.
   self->app.clearTapFlash();
@@ -101,10 +101,11 @@ EndOfBookOptions::Action EndOfBookOptions::handleMenuInput(const MappedInputMana
     }
   }
 
+  const int selectedIndex = selector.load(std::memory_order_relaxed);
   if (input.wasReleased(MappedInputManager::Button::Confirm)) {
-    if (selector < static_cast<int>(names.size())) {
+    if (selectedIndex < static_cast<int>(names.size())) {
       if (openPath) {
-        *openPath = fullPath(selector);
+        *openPath = fullPath(selectedIndex);
       }
       return Action::OpenBook;
     }
@@ -117,19 +118,17 @@ EndOfBookOptions::Action EndOfBookOptions::handleMenuInput(const MappedInputMana
     return Action::LastPage;
   }
 
-  // Selection movement follows reader page-turn buttons: side buttons honor the
-  // configured side-button layout, while front Left/Right move on release.
-  const bool sideUsePress = SETTINGS.sideButtonLongPress == CrossPointSettings::SIDE_LONG_PRESS::SIDE_LONG_OFF;
-  const auto sideTriggered = [&](const MappedInputManager::Button button) {
-    return sideUsePress ? input.wasPressed(button) : input.wasReleased(button);
-  };
+  // Side-button navigation follows each button's configured short action.
   const int itemCount = static_cast<int>(names.size()) + 1;  // + "Home" entry
-  if (sideTriggered(MappedInputManager::Button::PageBack) || input.wasReleased(MappedInputManager::Button::Left)) {
-    selector = ButtonNavigator::previousIndex(selector, itemCount);  // wraps to the bottom
+  if (input.wasReleased(MappedInputManager::Button::PageBack) || input.wasReleased(MappedInputManager::Button::Left)) {
+    selector.store(ButtonNavigator::previousIndex(selectedIndex, itemCount),
+                   std::memory_order_relaxed);  // wraps to the bottom
     return Action::Redraw;
   }
-  if (sideTriggered(MappedInputManager::Button::PageForward) || input.wasReleased(MappedInputManager::Button::Right)) {
-    selector = ButtonNavigator::nextIndex(selector, itemCount);  // wraps to the top
+  if (input.wasReleased(MappedInputManager::Button::PageForward) ||
+      input.wasReleased(MappedInputManager::Button::Right)) {
+    selector.store(ButtonNavigator::nextIndex(selectedIndex, itemCount),
+                   std::memory_order_relaxed);  // wraps to the top
     return Action::Redraw;
   }
   return Action::None;
@@ -155,7 +154,7 @@ void EndOfBookOptions::buildListScreen(UiApp::ScreenType& screen) {
   fui::ListProps props;
   props.items = rowItems.data();
   props.count = rowCount;
-  props.selectedIndex = static_cast<int16_t>(selector);
+  props.selectedIndex = static_cast<int16_t>(selector.load(std::memory_order_relaxed));
   props.action = ACTION_ROW;
   props.inputMask = fui::InputTouch;  // physical buttons stay in handleMenuInput()
   screen.list(props);

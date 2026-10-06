@@ -1,9 +1,12 @@
 #include "UsbSerialFileTransfer.h"
 
+#include <AppVersion.h>
 #include <Arduino.h>
 #include <FsHelpers.h>
 #include <HalStorage.h>
+#include <LibraryBuilder.h>
 #include <Logging.h>
+#include <SdCardFontSystem.h>
 #include <esp_rom_crc.h>
 
 #include <algorithm>
@@ -41,9 +44,6 @@ constexpr const char* HIDDEN_ITEMS[] = {"System Volume Information", "XTCache"};
 
 #ifndef CROSSINK_FIRMWARE_DEVICE_TYPE
 #define CROSSINK_FIRMWARE_DEVICE_TYPE "unknown"
-#endif
-#ifndef CROSSINK_VERSION
-#define CROSSINK_VERSION "unknown"
 #endif
 
 uint8_t commandMatchPos = 0;
@@ -274,6 +274,7 @@ bool removeRecursive(const char* path, size_t depth = 0) {
 
   if (!file.isDirectory()) {
     file.close();
+    library::invalidateLibraryIndex();
     const bool removed = Storage.remove(path);
     if (removed) clearCachesForPath(path);
     return removed;
@@ -304,7 +305,7 @@ bool removeRecursive(const char* path, size_t depth = 0) {
 void handleStatus() {
   char response[160];
   snprintf(response, sizeof(response), "STATUS:protocol=1,device=%s,firmware=%s,free=%u,largest=%u\n",
-           CROSSINK_FIRMWARE_DEVICE_TYPE, CROSSINK_VERSION, ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+           CROSSINK_FIRMWARE_DEVICE_TYPE, AppVersion::version(), ESP.getFreeHeap(), ESP.getMaxAllocHeap());
   writeLine(response);
 }
 
@@ -397,6 +398,7 @@ void handleMkdir() {
         return;
       }
       ImageFolderIndex::invalidateForPath(path);
+      sdFontSystem.markRegistryDirtyForPath(path);
     }
     writeLine("OK\n");
   } else {
@@ -564,6 +566,8 @@ void handleWrite() {
     return;
   }
 
+  library::invalidateLibraryIndex();
+  sdFontSystem.markRegistryDirtyForPath(path);
   if (Storage.exists(path)) {
     Storage.remove(path);
   }
@@ -575,6 +579,7 @@ void handleWrite() {
 
   clearCachesForPath(path);
   ImageFolderIndex::invalidateForPath(path);
+  sdFontSystem.markRegistryDirtyForPath(path);
   writeLine("OK\n");
 }
 
@@ -591,8 +596,10 @@ void handleRemove() {
     return;
   }
 
+  sdFontSystem.markRegistryDirtyForPath(path);
   if (removeRecursive(path)) {
     ImageFolderIndex::invalidateForPath(path);
+    sdFontSystem.markRegistryDirtyForPath(path);
     writeLine("OK\n");
   } else {
     writeLine("ERR:remove_failed\n");
@@ -626,10 +633,13 @@ void handleRename() {
   }
 
   if (Storage.rename(src, dst)) {
+    library::invalidateLibraryIndex();
     clearCachesForPath(src);
     clearCachesForPath(dst);
     ImageFolderIndex::invalidateForPath(src);
+    sdFontSystem.markRegistryDirtyForPath(src);
     ImageFolderIndex::invalidateForPath(dst);
+    sdFontSystem.markRegistryDirtyForPath(dst);
     writeLine("OK\n");
   } else {
     writeLine("ERR:rename_failed\n");

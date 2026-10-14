@@ -5,7 +5,7 @@
 
 set -u
 umask 077
-SCRIPT_VERSION="1"
+SCRIPT_VERSION="2"
 OUTPUT_PARENT="${1:-$PWD}"
 STAMP="$(date +%Y%m%d-%H%M%S 2>/dev/null || echo unknown-date)"
 OUT_DIR="$OUTPUT_PARENT/crossink-pw1-diagnostics-$STAMP"
@@ -67,8 +67,8 @@ copy_text_file() {
 
 run "identity: uname" uname -a
 run_sh "identity: process and shell" "id; echo SHELL=\${SHELL:-unknown}; pwd"
-run_sh "identity: system release files" "for f in /etc/version /etc/os-release /etc/prettyversion /etc/uks /etc/upstart; do [ -r \"\$f\" ] && { echo --- \$f; cat \"\$f\"; }; done"
-run_sh "identity: CPU and memory summary" "grep -E '^(Processor|model name|Hardware|Revision|BogoMIPS|MemTotal|MemFree|SwapTotal|SwapFree)' /proc/cpuinfo /proc/meminfo 2>/dev/null"
+run_sh "identity: system release files" "for f in /etc/version /etc/os-release /etc/prettyversion /etc/uks /etc/upstart; do [ -f \"\$f\" ] && [ -r \"\$f\" ] && { echo --- \$f; cat \"\$f\"; }; done"
+run_sh "identity: CPU and memory summary" "cat /proc/cpuinfo /proc/meminfo 2>/dev/null || true"
 run_sh "identity: executable format" "for f in /bin/sh /usr/bin/lipc-get-prop /usr/bin/fbset; do [ -x \"\$f\" ] && { echo --- \$f; file \"\$f\" 2>/dev/null || true; }; done"
 run_sh "runtime: libc and C++ libraries" "ls -l /lib/libc.so* /usr/lib/libc.so* /lib/libstdc++* /usr/lib/libstdc++* 2>/dev/null || true; ldd --version 2>&1 || true"
 run_sh "storage: mounts and free space" "mount; echo; df -h 2>/dev/null || df"
@@ -106,7 +106,7 @@ else
 fi
 
 run_sh "integration: launch and logging tools" "for c in kual kterm lipc-get-prop logger sshd dropbear; do if command -v \"\$c\" >/dev/null 2>&1; then echo available:\$c=\$(command -v \"\$c\"); else echo absent:\$c; fi; done"
-run_sh "integration: relevant service processes" "ps 2>/dev/null | grep -E '[k]ual|[k]oreader|[l]ipc|[p]owerd|[f]ramework' || true"
+run_sh "integration: relevant service processes" "ps 2>/dev/null || true"
 
 copy_text_file "/etc/version" "etc-version.txt"
 copy_text_file "/etc/os-release" "etc-os-release.txt"

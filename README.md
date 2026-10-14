@@ -1,11 +1,13 @@
 # CrossInk for Kindle
 
 > [!WARNING]
-> Experimental PW1 port: the 0.1.0 hardware diagnostic passed device testing. A 0.2.0 TXT preview is ready for testing; the full CrossInk activities and EPUB reader are still pending.
+> **Experimental proof of concept — made for fun.** This independent hobby project explores giving the first-generation Kindle Paperwhite another life as a reading device, with an app for a Kindle model Amazon has long since left behind. It is an experiment, not a finished or officially supported product.
 
-CrossInk for Kindle is an experimental port of [CrossInk](https://github.com/uxjulia/CrossInk) to the Linux-based **first-generation Kindle Paperwhite (PW1, 2012)**.
+CrossInk for Kindle is an experimental port of [CrossInk](https://github.com/uxjulia/CrossInk) to the Linux-based **first-generation Kindle Paperwhite (PW1, 2012)**. It is a personal, community-built project pursued for the fun of seeing whether this old e-reader can run a different reading app.
 
-The goal is to run the CrossInk reading experience as an application on a jailbroken Kindle while preserving the option to return to Amazon's original reader. The current CrossInk firmware targets ESP32-based e-readers and **cannot be installed on a Kindle**. This repository will contain the Linux/Kindle adaptation, build tools, documentation, test packages, and compatibility notes developed for the port.
+The idea is simple: give a Kindle that Amazon has stopped prioritizing another chance to be useful for reading. We are testing whether pieces of CrossInk can run as a removable application on a jailbroken PW1, while keeping Amazon's Kindle software available. This is a proof of concept: the current preview opens local TXT files, while the complete CrossInk interface and EPUB reading remain future work.
+
+This project is independent and is not an official CrossInk or Amazon product. The current CrossInk firmware targets ESP32-based e-readers and **cannot be installed on a Kindle**. This repository contains the experimental Linux/Kindle port, build tools, documentation, test packages, and compatibility notes.
 
 ## Target device
 
@@ -14,12 +16,12 @@ The goal is to run the CrossInk reading experience as an application on a jailbr
 | Device | Kindle Paperwhite, first generation |
 | Platform | Kindle Linux |
 | Form | Application launched alongside the original Kindle software |
-| Initial reading goal | EPUB; current preview supports TXT |
+| Reading goal | Explore local book reading; current preview supports TXT |
 | Input | Touchscreen |
 | Display | Kindle e-ink framebuffer |
-| Project status | Native TXT prototype; device validation pending |
+| Project status | Experimental proof of concept; TXT preview device test pending |
 
-Support for other Kindle models may be considered after the PW1 port becomes stable. No compatibility with another model should be assumed unless it is explicitly documented.
+The PW1 is the only target for this experiment. Other Kindle models are not supported unless they are explicitly tested and documented.
 
 ## Current status
 
@@ -27,18 +29,19 @@ Support for other Kindle models may be considered after the PW1 port becomes sta
 | --- | --- |
 | Kindle environment diagnostics | CPU, ABI, framebuffer and touch recorded from PW1 |
 | Reproducible ARM build | Static kindle5 executable; ELF audited |
-| E-ink display backend | Diagnostic full/partial updates validated on PW1 |
-| Touch input | Diagnostic corner/center/exit contacts validated |
-| CrossInk interface | Native renderer/FreeInkUI TXT preview; full activities pending |
+| E-ink display and touch diagnostic | Full/partial updates and touch targets tested on a PW1 |
+| Reading app | Native-renderer TXT preview; its new screen still needs device testing |
 | EPUB reading | Planned |
 | Reading progress persistence | TXT preview tested locally and under ARM emulation |
 | Front light, battery, suspend and resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable test package | KUAL diagnostic 0.1.0 and TXT preview 0.2.0 |
+| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.2.0 |
+
+The diagnostic has been tested on the device. The 0.2.0 preview has passed host and ARM-emulation checks, but has **not yet been validated on the Kindle**. Do not read the preview version number as a stable release or a claim that the full reader is complete.
 
 ## Development plan
 
-The first milestones are deliberately small and hardware-focused:
+The next steps for this proof of concept are deliberately small and hardware-focused:
 
 1. Collect system, display, input, power, and library information from a jailbroken PW1.
 2. Build and run a minimal ARM executable on the device.
@@ -54,7 +57,7 @@ Track detailed progress and milestone criteria in the [project roadmap](./ROADMA
 
 ## Architecture
 
-The port will build on CrossInk's separation between the reader and its hardware abstraction layer, together with the native simulator work that already allows parts of the application to run outside the ESP32 environment.
+The port builds on CrossInk's separation between the reading app and its hardware abstraction layer. It reuses selected CrossInk rendering, font, UI, and TXT components behind a small Kindle-specific compatibility layer.
 
 The Kindle implementation is expected to provide dedicated backends for:
 
@@ -75,13 +78,13 @@ The preview requires a real-device test of the new renderer, page controls and s
 
 ## Contributing
 
-Development is being tracked publicly so research, device findings, code, and test results remain reproducible. Bug reports and contributions will become useful once the first diagnostic and build instructions are available.
+Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.2.0 preview on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
 
 When reporting results from a Kindle, remove serial numbers, account information, Wi-Fi credentials, and other personal data from logs.
 
 ## Upstream projects and credits
 
-This repository is a fork of [CrossInk](https://github.com/uxjulia/CrossInk), which is itself based on [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader). Credit for the existing reader, firmware, hardware abstractions, and related work belongs to their respective contributors.
+This project adapts [CrossInk](https://github.com/uxjulia/CrossInk), which is itself based on [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader), for an experimental Kindle proof of concept. Credit for the existing reader, firmware, hardware abstractions, and related work belongs to their respective contributors.
 
 The Kindle port is an independent experimental project and is not an official CrossInk, CrossPoint Reader, Amazon, or Kindle release.
 

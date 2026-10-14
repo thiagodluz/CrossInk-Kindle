@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.2.0
+# CrossInk PW1 — prévia TXT 0.2.1
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -35,12 +35,24 @@ Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
 que ele pausou. A recuperação forçada e o tempo limite ainda precisam ser
 validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
-**Restaurar interface do Kindle**. Não conecte o USB durante a sessão; saia antes.
+**Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
+ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
+
+Para sair durante a sessão, **segure o canto superior direito por 5 segundos**
+(na área de aproximadamente 10% da largura e da altura). Soltar o dedo ou sair
+do canto cancela o gesto. O lançador tenta encerrar o aplicativo e força o
+encerramento após 2 segundos caso ele não responda; a interface do Kindle é
+retomada. Essa recuperação pode perder a posição ainda não salva. O gesto e o
+encerramento forçado ainda precisam ser validados no PW1.
+
+Não conecte o USB durante a sessão; saia antes.
 
 ## Arquivos e limites atuais
 
 - Coloque seus TXT e subpastas em `crossink/data/books`.
 - Use UTF-8, com ou sem BOM; quebras de linha LF e CRLF são aceitas.
+  TXT com UTF-8 inválido recebe uma mensagem pedindo a conversão antes de abrir.
+  A prévia não converte automaticamente Latin-1 ou Windows-1252.
 - Limite de 256 KiB por TXT, 512 páginas e 200 entradas por pasta.
 - A posição fica em `crossink/data/progress`, salva ao voltar, sair e durante
   a leitura. Alterar o conteúdo do livro reinicia a posição.
@@ -57,10 +69,15 @@ Use koxtoolchain kindle5 2026.08, com glibc 2.12.2 e ABI mínima Linux 2.6.31:
 ```sh
 python3 scripts/kindle/package-ui.py --toolchain /caminho/arm-kindle5-linux-gnueabi
 python3 scripts/kindle/build-ui.py --host
-python3 platform/kindle/check-launcher.py
+python3 scripts/kindle/check-host.py
 ```
+
+O empacotamento exige um checkout sem alterações locais. O CI executa
+`check-host.py`, incluindo backends, recuperação, TXT, armazenamento e tarefas
+nativas. Esse comando prepara automaticamente a pasta de teste de NativeChecks.
+Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-hora>`.
 
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a prévia 0.2.0 ainda requer o teste físico descrito acima.
+validam a lógica, mas a prévia 0.2.1 ainda requer o teste físico descrito acima.

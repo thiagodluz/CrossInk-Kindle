@@ -1,3 +1,20 @@
+## [Kindle PW1 TXT preview 0.2.1] - 2026-10-14
+
+### Fixed
+
+- KUAL recovery recognizes stale launch locks using boot and process-start identities, including a reused PID after reboot. Process signals check the recorded identity before touching the child or stock UI.
+- KUAL diagnostics write to `crossink/logs`, and the packaged UI build receipt now identifies the stripped executable. Release packaging rejects uncommitted source changes.
+- TXT with invalid UTF-8 shows a clear conversion message instead of displaying broken Portuguese characters. Automatic encoding conversion remains pending.
+
+### Added
+
+- Hold the physical upper-right corner for five seconds to request emergency exit from the input loop. The launcher forces termination after a two-second grace period if the app is stuck, then resumes the Kindle UI. Device validation is pending.
+- Kindle port CI runs backend, launcher, TXT UI and native HAL checks, including stale locks and emergency recovery. A single host-check command includes the formerly manual NativeChecks test.
+
+### Changed
+
+- The TXT preview still ends after five minutes, with a six-minute watchdog. Power-button, suspend/resume and emergency recovery require testing on the PW1. EPUB is not available.
+
 ## [Kindle PW1 TXT preview 0.2.0] - 2026-10-14
 
 ### Added

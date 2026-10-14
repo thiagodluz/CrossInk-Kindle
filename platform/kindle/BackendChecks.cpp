@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "EmergencyExit.h"
 #include "KindleBackends.h"
 
 namespace {
@@ -75,6 +76,25 @@ int main() {
   check(kindle::TouchDecoder::normalize(INT_MAX, INT_MIN, INT_MAX) == 1, "avoid signed range overflow");
   check(kindle::TouchDecoder::normalize(-1, 0, 100) == 0, "clamp below minimum");
   check(kindle::TouchDecoder::normalize(101, 0, 100) == 1, "clamp above maximum");
+  kindle::EmergencyExit emergency;
+  kindle::Touch point;
+  point.phase = kindle::Touch::Phase::Down;
+  point.nx = 0.95f;
+  point.ny = 0.05f;
+  check(!emergency.update(&point, 100), "emergency hold starts without exit");
+  check(!emergency.update(nullptr, 5099), "short emergency hold does not exit");
+  check(emergency.update(nullptr, 5100), "stationary emergency hold exits without new input");
+  point.phase = kindle::Touch::Phase::Up;
+  check(!emergency.update(&point, 5101), "release clears emergency hold");
+  point.phase = kindle::Touch::Phase::Down;
+  emergency.update(&point, 6000);
+  point.phase = kindle::Touch::Phase::Move;
+  point.nx = 0.8f;
+  check(!emergency.update(&point, 7000) && !emergency.update(nullptr, 12000), "leaving corner cancels hold");
+  point.phase = kindle::Touch::Phase::Down;
+  point.nx = 0.95f;
+  emergency.update(&point, ULONG_MAX - 2000);
+  check(emergency.update(nullptr, 2999), "emergency timer survives monotonic counter wrap");
   contactChecks();
   std::printf("backend_checks failures=%u\n", failures);
   return failures ? 1 : 0;

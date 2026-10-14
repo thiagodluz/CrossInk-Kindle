@@ -42,11 +42,15 @@ with tempfile.TemporaryDirectory(prefix='crossink-ui-') as directory:
     example.write_text('Conteúdo alterado.\n',encoding='utf-8')
     log = preview(args.binary,root,image,'--book',book)
     assert 'resume_page=1' in log and 'count=1' in log, log
-    for name, content in [('vazio.txt',b''),('acentos.txt',('\ufeffAção e coração\r\n'+ 'á'*150+'\r\n').encode())]:
+    for name, content in [('vazio.txt',b''),('literal-replacement.txt','\ufffd'.encode()),('acentos.txt',('\ufeffAção e coração\r\n'+ 'á'*150+'\r\n').encode())]:
         (root/'books'/name).write_bytes(content)
         preview(args.binary,root,image,'--book','/books/'+name)
     for name,content in [('grande.txt',b'x'*(256*1024+1)),('binario.txt',b'a\0b'),
-                         ('livro.epub',b'PK'),('paginas.txt',b'\n'*16000)]:
+                         ('livro.epub',b'PK'),('paginas.txt',b'\n'*16000),
+                         ('latin1.txt','Ação coração não'.encode('latin-1')),
+                         ('cp1252.txt','“Ação” — coração'.encode('cp1252')),
+                         ('truncado.txt',b'fim \xf0\x9f\x98'),('overlong.txt',b'\xc0\xaf'),
+                         ('surrogate.txt',b'\xed\xa0\x80')]:
         (root/'books'/name).write_bytes(content)
         preview(args.binary,root,image,'--book','/books/'+name,success=False)
     # Only preview arguments are accepted without a device; malformed taps fail early.

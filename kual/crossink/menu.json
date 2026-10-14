@@ -23,7 +23,7 @@
       {
         "name": "Coletar diagnostico",
         "action": "/bin/sh",
-        "params": "/mnt/us/crossink/collect-diagnostics.sh",
+        "params": "/mnt/us/crossink/collect-diagnostics.sh /mnt/us/crossink/logs",
         "status": false
       }
     ]

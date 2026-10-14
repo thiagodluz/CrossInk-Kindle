@@ -35,9 +35,9 @@ The PW1 is the only target for this experiment. Other Kindle models are not supp
 | Reading progress persistence | TXT preview tested locally and under ARM emulation |
 | Front light, battery, suspend and resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.2.0 |
+| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.2.1 |
 
-The diagnostic has been tested on the device. The 0.2.0 preview has passed host and ARM-emulation checks, but has **not yet been validated on the Kindle**. Do not read the preview version number as a stable release or a claim that the full reader is complete.
+The diagnostic has been tested on the device. The 0.2.1 preview has passed host and ARM-emulation checks, but has **not yet been validated on the Kindle**. Do not read the preview version number as a stable release or a claim that the full reader is complete.
 
 ## Development plan
 
@@ -72,13 +72,13 @@ Existing Kindle projects such as [FBInk](https://github.com/NiLuJe/FBInk), [KORe
 
 ## Installation
 
-Use the [0.2.0 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
+Use the [0.2.1 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
 
 The preview requires a real-device test of the new renderer, page controls and saved progress. It is an application package, not firmware; do not flash ESP32 firmware to a Kindle.
 
 ## Contributing
 
-Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.2.0 preview on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
+Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.2.1 preview on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
 
 When reporting results from a Kindle, remove serial numbers, account information, Wi-Fi credentials, and other personal data from logs.
 

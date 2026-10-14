@@ -17,6 +17,7 @@
 #include <builtinFonts/lexenddeca_10_regular.h>
 #include <builtinFonts/lexenddeca_14_regular.h>
 #include <builtinFonts/lexenddeca_16_bold.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <atomic>
@@ -28,6 +29,7 @@
 #include <string>
 #include <vector>
 
+#include "EmergencyExit.h"
 #include "RenderWorker.h"
 
 namespace fui = freeink::ui;
@@ -46,6 +48,18 @@ uint32_t fnv(const std::string& text) {
     value *= 16777619U;
   }
   return value;
+}
+bool validUtf8(const std::string& text) {
+  const auto* cursor = reinterpret_cast<const unsigned char*>(text.c_str());
+  while (*cursor) {
+    const auto* start = cursor;
+    const uint32_t codepoint = utf8NextCodepoint(&cursor);
+    // A literal U+FFFD is valid text; decoder-generated replacements are errors.
+    if (codepoint == REPLACEMENT_GLYPH &&
+        !(cursor - start == 3 && start[0] == 0xef && start[1] == 0xbf && start[2] == 0xbd))
+      return false;
+  }
+  return true;
 }
 bool hasTxtExtension(const std::string& path) {
   if (path.size() < 4) return false;
@@ -408,6 +422,13 @@ class PortApp {
       return false;
     }
     text_.assign(reinterpret_cast<const char*>(bytes.get()), size);
+    if (!validUtf8(text_)) {
+      book_.reset();
+      text_.clear();
+      error_ = tr(STR_KINDLE_UTF8_REQUIRED);
+      LOG_ERR("TXT", "Rejected invalid UTF-8: %s", path);
+      return false;
+    }
     contentHash_ = fnv(text_);
     if (!paginate()) {
       book_.reset();
@@ -466,7 +487,7 @@ class PortApp {
 
 int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IOLBF, 0);
-  std::puts("CrossInk PW1 UI preview 0.2.0 (native renderer, FreeInkUI and TXT module)");
+  std::puts("CrossInk PW1 UI preview 0.2.1 (native renderer, FreeInkUI and TXT module)");
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
   if (argc == 2 && !std::strcmp(argv[1], "--probe")) {
     kindle::Display probe;
@@ -547,11 +568,23 @@ int main(int argc, char** argv) {
   const unsigned long start = millis();
   uint64_t contactGeneration = 0;
   bool inputError = false;
+  kindle::EmergencyExit emergency;
   while (!interrupted && !app->exited() && millis() - start < 300000) {
     kindle::Touch touch;
     const int result = gpio.poll(touch, 100);
     if (result < 0) {
       inputError = true;
+      break;
+    }
+    if (emergency.update(result ? &touch : nullptr, millis())) {
+      LOG_INF("UI", "Emergency corner hold; requesting launcher recovery");
+      const char* launcher = std::getenv("CROSSINK_LAUNCHER_PID");
+      if (launcher) {
+        char* end = nullptr;
+        const long pid = std::strtol(launcher, &end, 10);
+        // Only the parent launcher may receive our recovery signal.
+        if (end != launcher && !*end && pid > 1 && pid == getppid()) kill(getppid(), SIGUSR1);
+      }
       break;
     }
     if (!result || touch.phase == kindle::Touch::Phase::Move) continue;

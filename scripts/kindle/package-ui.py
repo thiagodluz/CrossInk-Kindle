@@ -32,6 +32,8 @@ def main():
     parser.add_argument('--toolchain', type=Path, default=ROOT.parent/'toolchains/x-tools'/TRIPLE)
     parser.add_argument('--output', type=Path, default=ROOT/'build/kindle-pw1/release-ui')
     args = parser.parse_args()
+    if run('git', 'status', '--porcelain').strip():
+        raise RuntimeError('Commit or isolate source changes before packaging a release')
     toolchain, output = args.toolchain.resolve(), args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     tools = toolchain/'bin'
@@ -56,6 +58,11 @@ def main():
     ui_audit.write_text(audit(ui, tools))
     audit(diagnostic, tools)
     run(tools/(TRIPLE+'-strip'),'--strip-unneeded',ui)
+    # Keep the build hash for relinking and record the shipped bytes separately.
+    receipt['unstripped_binary_sha256'] = receipt['binary_sha256']
+    receipt['binary_sha256'] = sha(ui)
+    receipt['stripped'] = True
+    (output/'ui/arm-build.json').write_text(json.dumps(receipt, indent=2)+'\n')
     entries = {
         'crossink/bin/crossink-ui':ui, 'crossink/bin/crossink-pw1':diagnostic,
         'crossink/runner.sh':ROOT/'platform/kindle/runner.sh',
@@ -93,12 +100,12 @@ def main():
         entries['crossink/development/ui-objects/'+path.name]=path
     for path in (output/'diagnostic/diagnostic-objects').glob('*.o'):
         entries['crossink/development/diagnostic-objects/'+path.name]=path
-    manifest = {'version':'0.2.0','is_full_reader':False,'formats':['TXT UTF-8'],
+    manifest = {'version':'0.2.1','is_full_reader':False,'formats':['TXT UTF-8'],
                 'source_commit':receipt['source_commit'],'source_dirty':receipt['source_dirty'],
                 'sdk_commit':receipt['sdk_commit'],'session_timeout_seconds':300,
                 'watchdog_seconds':360,'linkage':'static','minimum_kernel':'2.6.31',
                 'files_sha256':{name:sha(path) for name,path in entries.items()}}
-    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.2.0.zip'
+    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.2.1.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as package:
         for name,path in entries.items():
             info=zipfile.ZipInfo(name,(2026,10,14,0,0,0))

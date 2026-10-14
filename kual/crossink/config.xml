@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension>
+  <information>
+    <name>CrossInk PW1</name>
+    <version>0.1.0</version>
+    <author>CrossInk-Kindle</author>
+    <id>crossink-pw1</id>
+  </information>
+  <menus>
+    <menu type="json">menu.json</menu>
+  </menus>
+</extension>

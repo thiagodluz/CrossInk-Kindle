@@ -51,3 +51,5 @@ dist-publish/
 /sdkconfig.*
 
 lib/ScalableFont/*.generated.h
+# Standalone Kindle build outputs.
+/build/kindle-pw1/

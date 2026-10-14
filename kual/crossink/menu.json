@@ -1,0 +1,25 @@
+{
+  "items": [{
+    "name": "CrossInk PW1",
+    "items": [
+      {
+        "name": "Testar tela e toque (90 segundos)",
+        "action": "/bin/sh",
+        "params": "/mnt/us/extensions/crossink/start.sh",
+        "status": false
+      },
+      {
+        "name": "Restaurar interface do Kindle",
+        "action": "/bin/sh",
+        "params": "/mnt/us/crossink/runner.sh --recover",
+        "status": false
+      },
+      {
+        "name": "Coletar diagnostico",
+        "action": "/bin/sh",
+        "params": "/mnt/us/crossink/collect-diagnostics.sh",
+        "status": false
+      }
+    ]
+  }]
+}

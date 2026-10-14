@@ -200,4 +200,25 @@ The initial Kindle capability profile disables Wi-Fi-dependent activities, USB M
 5. Implement the task compatibility layer and launch a minimal CrossInk activity.
 6. Only then connect the full CrossInk interface and local EPUB workflow.
 
-The next repository work item is the read-only PW1 diagnostic script. Its results will replace the explicitly unknown items in this document before any display or power backend is written.
+### Current PW1 evidence and validation package
+
+The diagnostic report collected on 2026-10-13 confirms Cortex-A8/ARMv7 with
+VFPv3/NEON, a 2.6.31 Lab126 kernel, approximately 256 MB RAM, glibc 2.12.1,
+an 8-bit `mxc_epdc_fb` framebuffer with 768-byte stride, and `cyttsp` on
+`/dev/input/event0`. An uploaded copy of `/bin/sh` confirms ELF32 little-endian
+ARM EABI5 and loader `/lib/ld-linux.so.3`, without a VFP-register argument ABI.
+The user confirms KUAL is installed and uses it to launch KOReader.
+
+`platform/kindle/` now contains standalone display and input backends and their
+diagnostic client. `scripts/kindle/build-package.py` builds with KOReader's
+`arm-kindle5-linux-gnueabi` toolchain and audits runtime symbol versions.
+`kual/crossink/` supplies the KUAL entry. Installation and hardware validation
+instructions are in [the package guide](../platform/kindle/README.md).
+
+The display geometry and offsets are queried at runtime; no framebuffer mode is
+changed. Display update ioctls follow the PW1 Pearl layout documented by KOReader.
+Their actual success, panel orientation, touch mapping, and clean UI handoff must
+still be confirmed by running the package on the user's PW1. The validation
+tool deliberately logs uncorrected normalized coordinates to establish mapping.
+The full CrossInk activities, FreeRTOS compatibility, sandboxed book storage,
+EPUB reading, suspend/resume and networking are not yet connected to this target.

@@ -70,7 +70,12 @@ python3 platform/kindle/check-launcher.py
 
 Os backends ainda são independentes do HAL do leitor. A interação com Linux
 fica em `KindleBackends.cpp`; `Diagnostic.cpp` é apenas seu cliente de validação.
-Não existe uma alegação de teste em hardware antes do usuário executar o pacote.
+O pacote 0.1.0 foi validado no PW1 do usuário em dois testes em 2026-10-14:
+atualizações completas/parciais, toque nos quatro cantos e no centro, botão SAIR,
+restauração do framebuffer e retomada dos processos da interface terminaram sem
+erros. A foto confirmou a orientação e os padrões de tela. A saída automática e
+a recuperação após travamento ainda não foram exercitadas nesses testes em hardware.
+Os resultados detalhados estão em `docs/kindle-platform-architecture.md`.
 
 ## Referências da implementação
 

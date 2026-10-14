@@ -211,14 +211,55 @@ The user confirms KUAL is installed and uses it to launch KOReader.
 
 `platform/kindle/` now contains standalone display and input backends and their
 diagnostic client. `scripts/kindle/build-package.py` builds with KOReader's
-`arm-kindle5-linux-gnueabi` toolchain and audits runtime symbol versions.
+`arm-kindle5-linux-gnueabi` toolchain and audits ARM EABI, static linkage and the
+minimum kernel ABI.
 `kual/crossink/` supplies the KUAL entry. Installation and hardware validation
 instructions are in [the package guide](../platform/kindle/README.md).
 
 The display geometry and offsets are queried at runtime; no framebuffer mode is
 changed. Display update ioctls follow the PW1 Pearl layout documented by KOReader.
-Their actual success, panel orientation, touch mapping, and clean UI handoff must
-still be confirmed by running the package on the user's PW1. The validation
-tool deliberately logs uncorrected normalized coordinates to establish mapping.
+The user ran package 0.1.0 twice on the PW1 on 2026-10-14 and supplied both logs
+plus a photo. The logs confirm successful complete and partial GC16 updates,
+touch down/move/up, framebuffer restoration, exit status 0, and resumption of
+both paused UI processes (`cvm` and `awesome`). The photo shows the intended
+portrait orientation, grayscale ramp, checkerboard and center-touch marker.
+The validation tool deliberately logs uncorrected normalized coordinates; no
+axis swap or inversion is needed for the tested portrait orientation.
 The full CrossInk activities, FreeRTOS compatibility, sandboxed book storage,
 EPUB reading, suspend/resume and networking are not yet connected to this target.
+
+### Hardware validation results — 2026-10-14
+
+Both logs agree on the live interfaces:
+
+| Property | Observed value |
+| --- | --- |
+| Framebuffer | `/dev/fb0`, `mxc_epdc_fb`, 758 x 1024, 8 bits per pixel |
+| Memory layout | stride 768, x/y offsets 0/0, rotation field 3, mapped memory 4,718,592 bytes |
+| Touch | `cyttsp`, `/dev/input/event0`, axes 53/54 (`ABS_MT_POSITION_X/Y`) |
+| Axis ranges | X 0..758, Y 0..1024, `BTN_TOUCH` available |
+| Earlier run | 53 down/move/up events; 15 successful display updates; normal exit 0 |
+| Latest run | 25 down/move/up events; 9 successful display updates; normal exit 0 |
+
+The final release coordinate for each requested target in the latest run was:
+
+| Target | Raw X | Raw Y |
+| --- | ---: | ---: |
+| 1: top left | 41 | 95 |
+| 2: top right | 686 | 68 |
+| 3: bottom left | 57 | 959 |
+| 4: bottom right | 679 | 963 |
+| Center | 388 | 508 |
+| Exit | 370 | 942 |
+
+All six releases fall within the intended target regions. Each contact has one
+down and one up; intermediate move events account for normal finger movement.
+Neither run reports an update failure, dropped input events or supervisor timeout.
+Both ended through the Exit button (`interrupted=0`), followed by a successful
+full refresh restoring the snapshot and UI-process resumption. These runs do
+not establish the 90-second automatic-exit or forced-crash watchdog behavior on
+hardware, other orientations, long reading sessions or suspend/resume.
+
+The next implementation milestone is the reader-facing HAL and compatibility
+layer: sandboxed POSIX storage, joinable tasks/render synchronization, and a
+minimal CrossInk activity using the validated display and input backends.

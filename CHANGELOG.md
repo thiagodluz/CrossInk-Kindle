@@ -5,6 +5,10 @@
 - A standalone ARM hardware-validation package launched from KUAL, with black/white and grayscale display patterns, touchscreen capture, automatic exit, UI recovery, and USB-copyable logs. This milestone does not yet include the EPUB reader.
 - A kindle5 build script that produces a standalone diagnostic and audits its ARM calling convention, minimum kernel ABI, and absence of external runtime dependencies before packaging.
 
+### Changed
+
+- Recorded successful PW1 hardware validation on 2026-10-14: complete/partial display updates, portrait touch coordinates, normal exit, framebuffer restoration and stock UI-process resumption across two runs.
+
 ## [v1.6.1] - 2026-10-03
 
 ### Added

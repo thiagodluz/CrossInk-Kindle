@@ -1,9 +1,10 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include <linux/fb.h>
 #include <linux/input.h>
+
+#include <cstddef>
+#include <cstdint>
 
 namespace kindle {
 
@@ -43,6 +44,7 @@ class Input {
   bool open(bool exclusive);
   // 1: touch, 0: timeout/irrelevant event, -1: device error.
   int poll(Touch& touch, int timeoutMs);
+
  private:
   int fd_ = -1;
   bool grabbed_ = false;
@@ -57,6 +59,7 @@ class Display {
   bool restore();
   const Layout& layout() const { return layout_; }
   uint8_t* pixels() { return pixels_; }
+
  private:
   bool update(bool full);
   int fd_ = -1;

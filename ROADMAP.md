@@ -16,15 +16,17 @@ This roadmap tracks the experimental port of CrossInk to the first-generation Ki
 | Milestone | Outcome | Status |
 | --- | --- | --- |
 | M0 — Project foundation | Repository purpose, workflow, and roadmap are public. | Complete |
-| M1 — PW1 environment known | Hardware and software interfaces are documented from a real device. | Planned |
-| M2 — First native executable | A reproducible ARM program starts, logs, and exits on the PW1. | Planned |
-| M3 — Display and input | The application draws safely and receives correct touch events. | Planned |
-| M4 — CrossInk interface | CrossInk navigation runs through Kindle-specific platform backends. | Planned |
+| M1 — PW1 environment known | CPU/ABI/display/touch documented; power interfaces pending. | Current |
+| M2 — First native executable | A reproducible ARM diagnostic starts, logs, and exits on the PW1. | Complete |
+| M3 — Display and input | Full/partial updates and portrait taps validated; forced recovery and wider gestures pending. | Current |
+| M4 — CrossInk interface | Native TXT preview built; hardware validation and original activities pending. | Current |
 | M5 — Local EPUB reading | A local EPUB opens, paginates, and resumes correctly. | Planned |
 | M6 — Daily-use platform support | Front light, battery, suspend, and resume work reliably. | Planned |
 | M7 — Network features | Wi-Fi, OPDS, and progress sync work without risking local reading state. | Planned |
-| M8 — Preview release | A reversible, documented package is available for PW1 testing. | Planned |
+| M8 — Preview release | Diagnostic 0.1.0 validated; documented TXT preview 0.2.0 awaits device testing. | Current |
 | M9 — Stable PW1 release | The supported feature set passes prolonged hardware testing. | Planned |
+
+Current evidence (2026-10-14): see the [hardware validation](./docs/kindle-platform-architecture.md#hardware-validation-results--2026-10-14) and [TXT preview test instructions](./platform/kindle/UI-README.md). The remaining phase checklists are acceptance criteria for the complete port; a preview does not complete the original activity/EPUB milestones.
 
 ## Phase 0 — Repository foundation
 

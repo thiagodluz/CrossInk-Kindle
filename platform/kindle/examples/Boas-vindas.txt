@@ -1,0 +1,21 @@
+Bem-vindo ao CrossInk no Kindle Paperwhite
+
+Este livro acompanha a primeira prévia de leitura TXT para o Paperwhite de primeira geração. Ele permite conferir o desenho das letras, os acentos, a troca de páginas e o retorno ao navegador de arquivos. Você pode usar os botões na parte inferior da tela para avançar, voltar e sair.
+
+A leitura em uma tela de tinta eletrônica tem seu próprio ritmo. A imagem permanece visível entre as atualizações e uma nova página substitui a anterior com uma breve mudança de contraste. O objetivo desta prévia é verificar se essa transição acontece corretamente enquanto o texto continua nítido e as áreas de toque permanecem alinhadas.
+
+Se você avançar algumas páginas, voltar ao navegador e abrir este livro novamente, a posição deve ser retomada. A posição também é salva ao sair pelo botão Sair. Durante a leitura, alterações de posição são gravadas com um intervalo, evitando escrever no armazenamento a cada toque.
+
+O português traz uma boa variedade de letras para avaliar as fontes: ação, coração, razão, café, você, amanhã, língua, infância e saúde. Também aparecem sinais de pontuação, como vírgulas, pontos, parênteses e travessões — todos importantes para uma leitura confortável. Os caracteres desta página passam pelo mesmo renderer e pelas fontes utilizadas no projeto CrossInk.
+
+Livros em TXT podem ter parágrafos curtos ou extensos. Nesta prévia, as palavras são ajustadas à largura disponível da tela. Uma linha vazia separa os parágrafos. Uma palavra muito longa é dividida entre linhas, preservando os limites de cada caractere. A formatação avançada de livros EPUB será integrada em uma etapa posterior.
+
+Você pode copiar outros arquivos TXT em UTF-8 para a pasta crossink/data/books, na raiz do armazenamento acessível por USB. Também pode criar subpastas para organizar os textos. O navegador mostra as pastas antes dos arquivos e permite entrar nelas e retornar usando o botão Voltar.
+
+Este é um pacote experimental para validar a integração. A sessão encerra automaticamente após cinco minutos. Para copiar novos arquivos, saia da prévia e conecte o Kindle ao computador. Na próxima abertura, você encontrará novamente a opção do CrossInk no menu do KUAL.
+
+Para avaliar a troca de páginas, observe o número mostrado no cabeçalho antes e depois de tocar em Próxima. Em seguida, toque em Anterior. O texto deve corresponder à página indicada, sem inverter a orientação nem deslocar os controles. Se tocar em Sair, a interface do Kindle deve voltar.
+
+A integração avança por componentes que podem ser observados no aparelho: primeiro a tela e o toque; depois a navegação, a abertura de arquivos e a gravação de estado; em seguida os recursos mais completos de leitura. Cada resultado ajuda a manter o comportamento do aplicativo coerente com o hardware do Paperwhite.
+
+Você chegou ao fim do texto de exemplo. Volte ao navegador, abra novamente este arquivo e confira a posição retomada. Depois, saia pelo botão Sair e envie o arquivo crossink/logs/ui.log para que possamos analisar o teste.

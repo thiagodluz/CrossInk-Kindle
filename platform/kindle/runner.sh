@@ -23,7 +23,7 @@ resume_ui() {
   if [ -f "$CI_LOCK/paused" ]; then
     while read -r ci_pid ci_expected; do
       case "$ci_pid" in ''|*[!0-9]*) continue ;; esac
-      case "$ci_expected" in cvm|awesome) ;; *) continue ;; esac
+      case "$ci_expected" in cvm|awesome|volumd) ;; *) continue ;; esac
       if read_process "$ci_pid"; then
         if [ "$ci_name" = "$ci_expected" ]; then
           kill -CONT "$ci_pid" 2>/dev/null
@@ -39,11 +39,11 @@ terminate_child() {
     read -r ci_pid < "$CI_LOCK/child"
     case "$ci_pid" in ''|*[!0-9]*) return ;; esac
     if read_process "$ci_pid"; then
-      if [ "$ci_name" = crossink-pw1 ]; then
+      if [ "$ci_name" = crossink-pw1 ] || [ "$ci_name" = crossink-ui ]; then
         kill -TERM "$ci_pid" 2>/dev/null
         sleep 2
         if read_process "$ci_pid"; then
-          [ "$ci_name" = crossink-pw1 ] && kill -KILL "$ci_pid" 2>/dev/null
+          case "$ci_name" in crossink-pw1|crossink-ui) kill -KILL "$ci_pid" 2>/dev/null ;; esac
         fi
       fi
     fi
@@ -61,7 +61,9 @@ recover() {
 
 if [ "${1:-}" = --watchdog ]; then
   # This independent process survives a killed runner or a blocked display ioctl.
-  sleep 120
+  ci_timeout=${3:-120}
+  case "$ci_timeout" in 120|360) ;; *) exit 1 ;; esac
+  sleep "$ci_timeout"
   if [ -f "$CI_LOCK/owner" ]; then
     read -r ci_owner < "$CI_LOCK/owner"
     if [ "$ci_owner" = "${2:-}" ]; then
@@ -71,6 +73,7 @@ if [ "${1:-}" = --watchdog ]; then
   fi
   exit 0
 fi
+
 if [ "${1:-}" = --recover ]; then
   recover
   if [ -f "$CI_LOCK/owner" ]; then
@@ -81,6 +84,20 @@ if [ "${1:-}" = --recover ]; then
     ;; esac
   fi
   exit 0
+fi
+
+ci_binary=crossink-pw1
+ci_argument=--diagnostic
+ci_log=diagnostic
+ci_timeout=120
+if [ "${1:-}" = --ui ]; then
+  ci_binary=crossink-ui
+  ci_argument=--app
+  ci_log=ui
+  ci_timeout=360
+elif [ -n "${1:-}" ]; then
+  echo 'ERROR unknown launcher mode'
+  exit 1
 fi
 
 mkdir -p "$CI_ROOT/state" "$CI_ROOT/logs" || exit 1
@@ -102,17 +119,17 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 trap '' HUP
 
-# Rotate two bounded logs. The diagnostic caps captured touch data to 500 events.
-[ -f "$CI_ROOT/logs/diagnostic.log" ] && mv -f "$CI_ROOT/logs/diagnostic.log" "$CI_ROOT/logs/diagnostic.previous.log"
-exec >> "$CI_ROOT/logs/diagnostic.log" 2>&1
+# Keep the current and previous log for each mode. Sessions are time-bounded.
+[ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
+exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo 'launcher=CrossInk PW1 hardware validation 0.1.0'
+echo "launcher=CrossInk PW1 package 0.2.0 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
-"$CI_ROOT/bin/crossink-pw1" --version || exit 1
-"$CI_ROOT/bin/crossink-pw1" --probe || exit 1
+"$CI_ROOT/bin/$ci_binary" --version || exit 1
+"$CI_ROOT/bin/$ci_binary" --probe || exit 1
 
-/bin/sh "$CI_ROOT/runner.sh" --watchdog "$$" &
+/bin/sh "$CI_ROOT/runner.sh" --watchdog "$$" "$ci_timeout" &
 CI_WATCHDOG=$!
 
 # Pause only running stock UI processes; record names before sending signals.
@@ -122,11 +139,16 @@ for ci_file in "$CI_PROC"/[0-9]*/status; do
   [ -r "$ci_file" ] || continue
   ci_pid=${ci_file%/status}; ci_pid=${ci_pid##*/}
   read_process "$ci_pid" || continue
-  case "$ci_name" in cvm|awesome) ;; *) continue ;; esac
+  case "$ci_name" in
+    cvm|awesome) ;;
+    volumd) [ "$ci_log" = ui ] || continue ;;
+    *) continue ;;
+  esac
   case "$ci_state" in T|t|'') continue ;; esac
   echo "$ci_pid $ci_name" >> "$CI_LOCK/paused"
   if kill -STOP "$ci_pid" 2>/dev/null; then
-    ci_paused=$((ci_paused + 1))
+    # In UI mode volumd is also paused, preventing simultaneous USB ownership.
+    case "$ci_name" in cvm|awesome) ci_paused=$((ci_paused + 1)) ;; esac
     echo "paused pid=$ci_pid name=$ci_name"
   else
     echo "ERROR unable to pause pid=$ci_pid"
@@ -138,7 +160,7 @@ if [ "$ci_paused" -eq 0 ]; then
   exit 1
 fi
 sleep 1
-"$CI_ROOT/bin/crossink-pw1" --diagnostic &
+"$CI_ROOT/bin/$ci_binary" "$ci_argument" &
 CI_CHILD=$!
 echo "$CI_CHILD" > "$CI_LOCK/child"
 wait "$CI_CHILD"

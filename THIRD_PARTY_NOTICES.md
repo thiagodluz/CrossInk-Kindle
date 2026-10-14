@@ -33,7 +33,7 @@ Licensed under the MIT License.
 
 Pinned reference: [`95be4c2e546d6e88625fb33c31478893d4f06f1b`](https://github.com/uxjulia/crossink-simulator/commit/95be4c2e546d6e88625fb33c31478893d4f06f1b).
 
-The simulator is not currently a Kindle package dependency. Preserve this notice if any simulator source is copied into the Kindle compatibility layer.
+The 0.2.0 compatibility layer copies only WString.h from simulator commit `4586bee9b2aed9a087d9bc550e7f74c3cfcd446d`. Its full MIT notice is in `platform/kindle/compat/SIMULATOR-COMPAT-LICENSE.txt`. No simulator display, storage, power or detached task implementation is used.
 
 ## Bundled Noto fonts
 
@@ -94,3 +94,14 @@ These components are not approved for inclusion in the initial local-reader pack
 | koxtoolchain scripts | No top-level license found during audit | May be studied as build reference; not copied or redistributed. |
 
 See [`docs/licensing.md`](./docs/licensing.md) for the policy and evidence.
+
+
+## PW1 preview runtime and text support
+
+The 0.2.0 preview statically links glibc 2.12.2 (LGPL) and GCC runtime libraries
+with the GCC Runtime Library Exception. The package retains the toolchain's
+license texts and includes application objects and relink instructions.
+MiniBidi derives from Ahmad Khalifa and Thomas Wolff's MIT-licensed code; its
+notice is retained in `platform/kindle/licenses/MiniBidi-MIT.txt`. uzlib retains
+Joergen Ibsen and Paul Sokolovsky's zlib-style notice in the packaged source.
+Only Bitter and Lexend Deca fonts are compiled into this preview.

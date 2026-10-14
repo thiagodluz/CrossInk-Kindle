@@ -155,6 +155,11 @@ class GfxRenderer {
   ~GfxRenderer() {
     freeBwBufferChunks();
     freeBitmapScratchBuffers();
+#if defined(CROSSINK_PLATFORM_KINDLE)
+    // The native app joins its renderer thread before destroying this object.
+    vSemaphoreDelete(bitmapScratchMutex_);
+    bitmapScratchMutex_ = nullptr;
+#endif
   }
 
   static constexpr int VIEWABLE_MARGIN_TOP = 9;

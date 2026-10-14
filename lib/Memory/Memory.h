@@ -145,9 +145,9 @@ inline HeapByteBuffer makeAlignedByteBufferNoThrow(const size_t count, const Mem
     constexpr size_t alignment = alignof(std::max_align_t);
     if (count > SIZE_MAX - (alignment - 1)) return {};
     const size_t alignedCount = (count + alignment - 1) & ~(alignment - 1);
-#if defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)
-    // ESP's newlib exposes posix_memalign to C++; its implementation uses the
-    // same size-based default heap preference as malloc.
+#if (defined(ARDUINO_ARCH_ESP32) && !defined(SIMULATOR)) || defined(CROSSINK_PLATFORM_KINDLE)
+    // ESP's newlib uses the same default heap preference as malloc. PW1's old
+    // glibc provides posix_memalign but predates C11 aligned_alloc.
     void* ptr = nullptr;
     if (::posix_memalign(&ptr, alignment, alignedCount) != 0) return {};
     return HeapByteBuffer(static_cast<uint8_t*>(ptr));

@@ -42,9 +42,10 @@ Refer to https://freeink.org/llms.txt for guidance.
 
 ## Kindle PW1 branch
 
-- `platform/kindle/` is currently a standalone hardware diagnostic, not the full reader HAL. KUAL packaging is in `kual/crossink/` and `scripts/kindle/build-package.py`.
+- `platform/kindle/` provides the validated diagnostic and a 0.2.0 native TXT preview (device validation pending). The preview reuses GfxRenderer/FreeInkUI/fonts/Txt; ActivityManager, UITheme and EPUB are not yet connected. Package it with `scripts/kindle/package-ui.py`; diagnostic-only packaging remains `build-package.py`.
 - Two device runs on 2026-10-14 confirmed `mxc_epdc_fb` at 758x1024, 8bpp, stride 768, offsets 0/0, rotate field 3, and the Pearl send/wait ioctls. Portrait output is upright without changing the framebuffer mode.
 - `cyttsp` on event0 reports ABS_MT_POSITION_X/Y (53/54), X 0..758, Y 0..1024, and BTN_TOUCH. Uncorrected normalized coordinates match portrait targets; do not apply a second rotation based solely on framebuffer `rotate=3`.
+- Native rendering uses a canonical 1024x758 1-bit buffer; portrait drawing and inverse touch conversion produce the physical 758x1024 pixels. Storage is anchored below `/mnt/us/crossink/data`; the render worker is joinable and owns UI/file state. Static ARM softfp builds avoid newer runtime dependencies.
 - Normal Exit restores pixels and resumes `cvm`/`awesome`. Automatic timeout and forced-crash recovery still need device validation. Use `/proc/PID/status` rather than `/proc/PID/comm` on the old kernel.
 
 ## Misc Repo Gotchas

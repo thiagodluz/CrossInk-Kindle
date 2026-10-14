@@ -2,6 +2,7 @@
 """Exercise launcher rollback with isolated fake proc entries and real child signals."""
 
 import os
+import itertools
 import signal
 import subprocess
 import tempfile
@@ -36,7 +37,7 @@ int main(int argc,char** argv) {
  if(argc!=2) return 2;
  if(!strcmp(argv[1],"--version")) return 0;
  if(!strcmp(argv[1],"--probe")) return getenv("MOCK_PROBE_FAIL") ? 19 : 0;
- if(!strcmp(argv[1],"--diagnostic")) {
+ if(!strcmp(argv[1],"--diagnostic") || !strcmp(argv[1],"--app")) {
    const char* mode=getenv("MOCK_MODE");
    if(mode && !strcmp(mode,"wait")) for(;;) pause();
    return mode && !strcmp(mode,"fail") ? 23 : 0;
@@ -46,25 +47,30 @@ int main(int argc,char** argv) {
 ''')
         mock = base / "crossink-pw1"
         subprocess.run(["g++", str(native), "-o", str(mock)], check=True)
-        for mode in ("normal", "fail", "probe-fail", "interrupt", "recover"):
-            app = base / mode
+        for profile, mode in itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover")):
+            app = base / (profile+"-"+mode)
+            binary_name = "crossink-ui" if profile=="ui" else "crossink-pw1"
+            arguments = ["--ui"] if profile=="ui" else []
             (app / "bin").mkdir(parents=True)
-            (app / "bin/crossink-pw1").write_bytes(mock.read_bytes())
-            (app / "bin/crossink-pw1").chmod(0o755)
+            (app / "bin" / binary_name).write_bytes(mock.read_bytes())
+            (app / "bin" / binary_name).chmod(0o755)
             (app / "runner.sh").write_bytes((ROOT / "platform/kindle/runner.sh").read_bytes())
             proc = app / "proc"
             heartbeat = app / "ui-heartbeat"
             stopped_heartbeat = app / "stopped-heartbeat"
+            volume_heartbeat = app / "volume-heartbeat"
             ui = subprocess.Popen([str(mock), "--heartbeat", str(heartbeat)])
             previously_stopped = subprocess.Popen([str(mock), "--heartbeat", str(stopped_heartbeat)])
+            volume = subprocess.Popen([str(mock), "--heartbeat", str(volume_heartbeat)])
             runner = None
             try:
                 wait_for(lambda: heartbeat.exists() and heartbeat.stat().st_size > 0, "UI fixture not started")
                 wait_for(lambda: stopped_heartbeat.exists() and stopped_heartbeat.stat().st_size > 0, "stopped fixture not started")
+                wait_for(lambda: volume_heartbeat.exists() and volume_heartbeat.stat().st_size > 0, "volume fixture not started")
                 os.kill(previously_stopped.pid, signal.SIGSTOP)
                 time.sleep(0.2)
                 stopped_size = stopped_heartbeat.stat().st_size
-                for pid, name, status in ((ui.pid, "cvm", "S"), (previously_stopped.pid, "awesome", "T")):
+                for pid, name, status in ((ui.pid, "cvm", "S"), (previously_stopped.pid, "awesome", "T"), (volume.pid, "volumd", "S")):
                     directory = proc / str(pid)
                     directory.mkdir(parents=True)
                     (directory / "status").write_text(f"Name:\t{name}\nState:\t{status} (fixture)\n")
@@ -72,19 +78,19 @@ int main(int argc,char** argv) {
                            MOCK_MODE="wait" if mode in ("interrupt", "recover") else mode)
                 if mode == "probe-fail":
                     env["MOCK_PROBE_FAIL"] = "1"
-                runner = subprocess.Popen(["/bin/sh", str(app / "runner.sh")], env=env,
+                runner = subprocess.Popen(["/bin/sh", str(app / "runner.sh"), *arguments], env=env,
                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 if mode in ("interrupt", "recover"):
                     child_file = app / "state/launch.lock/child"
                     wait_for(child_file.exists, "diagnostic not started")
                     pid = int(child_file.read_text())
                     (proc / str(pid)).mkdir()
-                    (proc / str(pid) / "status").write_text("Name:\tcrossink-pw1\nState:\tS (fixture)\n")
+                    (proc / str(pid) / "status").write_text(f"Name:\t{binary_name}\nState:\tS (fixture)\n")
                     paused_size = heartbeat.stat().st_size
                     time.sleep(0.2)
                     assert heartbeat.stat().st_size == paused_size, "stock UI wasn't paused"
                     # A second launch must refuse to acquire the existing lock.
-                    second = subprocess.run(["/bin/sh", str(app / "runner.sh")], env=env, capture_output=True, timeout=4)
+                    second = subprocess.run(["/bin/sh", str(app / "runner.sh"), *arguments], env=env, capture_output=True, timeout=4)
                     assert second.returncode == 1, "duplicate launch accepted"
                     if mode == "interrupt":
                         runner.terminate()
@@ -96,19 +102,22 @@ int main(int argc,char** argv) {
                 assert result == expected, (mode, result, expected)
                 resumed_size = heartbeat.stat().st_size
                 wait_for(lambda: heartbeat.stat().st_size > resumed_size, "UI not resumed")
+                resumed_volume = volume_heartbeat.stat().st_size
+                wait_for(lambda: volume_heartbeat.stat().st_size > resumed_volume, "volume service not resumed")
                 assert stopped_heartbeat.stat().st_size == stopped_size, "previously stopped UI was incorrectly resumed"
                 assert not (app / "state/launch.lock").exists(), "lock leaked"
-                log = (app / "logs/diagnostic.log").read_text()
+                log = (app / "logs" / (profile+".log")).read_text()
                 if mode == "probe-fail":
                     assert "paused pid=" not in log, "UI touched after failed probe"
                 else:
                     assert "paused pid=" in log and "resumed pid=" in log, "handoff missing"
-                print(f"launcher_check {mode}=ok")
+                    assert (f"paused pid={volume.pid} name=volumd" in log) == (profile=="ui"), "USB ownership mismatch"
+                print(f"launcher_check {profile}/{mode}=ok")
             finally:
                 if runner and runner.poll() is None:
                     runner.kill()
                     runner.wait()
-                for process in (ui, previously_stopped):
+                for process in (ui, previously_stopped, volume):
                     process.kill()
                     process.wait()
 

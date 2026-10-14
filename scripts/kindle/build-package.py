@@ -42,7 +42,14 @@ def main() -> None:
              "-mcpu=cortex-a8", "-mfpu=neon", "-mfloat-abi=softfp", "-static",
              "-Wl,--hash-style=both", "-Wl,--build-id=sha1", "-Wl,-z,relro"]
     sources = ["platform/kindle/KindleBackends.cpp", "platform/kindle/Diagnostic.cpp"]
-    print(run(str(compiler), *flags, *sources, "-lrt", "-o", str(binary)), end="")
+    objects_dir = output / "diagnostic-objects"
+    objects_dir.mkdir(exist_ok=True)
+    objects = []
+    for source in sources:
+        target = objects_dir / (Path(source).stem + ".o")
+        run(str(compiler), *flags, "-c", source, "-o", str(target))
+        objects.append(str(target))
+    print(run(str(compiler), *flags, *objects, "-lrt", "-o", str(binary)), end="")
     print(run(str(tools / f"{TARGET}-strip"), "--strip-unneeded", str(binary)), end="")
     readelf = str(tools / f"{TARGET}-readelf")
     header = run(readelf, "-h", str(binary))
@@ -67,12 +74,18 @@ def main() -> None:
         raise SystemExit(f"Standalone diagnostic has external runtime dependencies: {needed}")
     audit = "\n".join([header, attributes, program, dynamic, versions, notes])
     (output / "elf-audit.txt").write_text(audit)
+    # A diagnostic-only archive must not advertise an absent UI binary.
+    menu = json.loads((REPO / "kual/crossink/menu.json").read_text())
+    menu["items"][0]["items"] = [item for item in menu["items"][0]["items"] if "--ui" not in item.get("params", "")]
+    (output / "diagnostic-menu.json").write_text(json.dumps(menu, indent=2) + "\n")
+    config = (REPO / "kual/crossink/config.xml").read_text().replace("0.2.0", "0.1.0")
+    (output / "diagnostic-config.xml").write_text(config)
     entries = {
         "crossink/bin/crossink-pw1": binary,
         "crossink/runner.sh": REPO / "platform/kindle/runner.sh",
         "crossink/collect-diagnostics.sh": REPO / "scripts/kindle/collect-diagnostics.sh",
-        "extensions/crossink/config.xml": REPO / "kual/crossink/config.xml",
-        "extensions/crossink/menu.json": REPO / "kual/crossink/menu.json",
+        "extensions/crossink/config.xml": output / "diagnostic-config.xml",
+        "extensions/crossink/menu.json": output / "diagnostic-menu.json",
         "extensions/crossink/start.sh": REPO / "kual/crossink/start.sh",
         "LEIA-ME.md": REPO / "platform/kindle/README.md",
         "crossink/elf-audit.txt": output / "elf-audit.txt",

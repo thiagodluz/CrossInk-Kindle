@@ -3,6 +3,12 @@
     "name": "CrossInk PW1",
     "items": [
       {
+        "name": "Abrir CrossInk (previa TXT)",
+        "action": "/bin/sh",
+        "params": "/mnt/us/extensions/crossink/start.sh --ui",
+        "status": false
+      },
+      {
         "name": "Testar tela e toque (90 segundos)",
         "action": "/bin/sh",
         "params": "/mnt/us/extensions/crossink/start.sh",

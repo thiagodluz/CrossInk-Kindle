@@ -1,7 +1,7 @@
 # CrossInk for Kindle
 
 > [!WARNING]
-> This project is in the early research and prototyping stage. There is no installable Kindle build yet.
+> Experimental PW1 port: the 0.1.0 hardware diagnostic passed device testing. A 0.2.0 TXT preview is ready for testing; the full CrossInk activities and EPUB reader are still pending.
 
 CrossInk for Kindle is an experimental port of [CrossInk](https://github.com/uxjulia/CrossInk) to the Linux-based **first-generation Kindle Paperwhite (PW1, 2012)**.
 
@@ -14,10 +14,10 @@ The goal is to run the CrossInk reading experience as an application on a jailbr
 | Device | Kindle Paperwhite, first generation |
 | Platform | Kindle Linux |
 | Form | Application launched alongside the original Kindle software |
-| Initial format | EPUB |
+| Initial reading goal | EPUB; current preview supports TXT |
 | Input | Touchscreen |
 | Display | Kindle e-ink framebuffer |
-| Project status | Research and early development |
+| Project status | Native TXT prototype; device validation pending |
 
 Support for other Kindle models may be considered after the PW1 port becomes stable. No compatibility with another model should be assumed unless it is explicitly documented.
 
@@ -25,16 +25,16 @@ Support for other Kindle models may be considered after the PW1 port becomes sta
 
 | Area | Status |
 | --- | --- |
-| Kindle environment diagnostics | Ready for device test |
-| Reproducible ARM build | Planned |
-| E-ink display backend | Planned |
-| Touch input | Planned |
-| CrossInk interface | Planned |
+| Kindle environment diagnostics | CPU, ABI, framebuffer and touch recorded from PW1 |
+| Reproducible ARM build | Static kindle5 executable; ELF audited |
+| E-ink display backend | Diagnostic full/partial updates validated on PW1 |
+| Touch input | Diagnostic corner/center/exit contacts validated |
+| CrossInk interface | Native renderer/FreeInkUI TXT preview; full activities pending |
 | EPUB reading | Planned |
-| Reading progress persistence | Planned |
+| Reading progress persistence | TXT preview tested locally and under ARM emulation |
 | Front light, battery, suspend and resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable test package | Not available |
+| Installable test package | KUAL diagnostic 0.1.0 and TXT preview 0.2.0 |
 
 ## Development plan
 
@@ -69,9 +69,9 @@ Existing Kindle projects such as [FBInk](https://github.com/NiLuJe/FBInk), [KORe
 
 ## Installation
 
-There is currently nothing to install. Do not flash CrossInk ESP32 firmware files to a Kindle.
+Use the [0.2.0 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
 
-Test packages and device-specific installation and recovery instructions will be published only after the basic executable, display, input, and exit paths have been validated on real hardware.
+The preview requires a real-device test of the new renderer, page controls and saved progress. It is an application package, not firmware; do not flash ESP32 firmware to a Kindle.
 
 ## Contributing
 

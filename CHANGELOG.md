@@ -1,3 +1,16 @@
+## [Kindle PW1 TXT preview 0.2.0] - 2026-10-14
+
+### Added
+
+- KUAL launch of a bounded native TXT preview using the actual GfxRenderer, FreeInkUI components, fonts and Txt module. Folder browsing, Portuguese text, page controls and saved reading progress run through the Kindle HAL.
+- Root-anchored POSIX HalStorage, canonical framebuffer/touch conversion, joinable render ownership, monotonic waits and native mutex compatibility. Full activities and EPUB remain pending.
+- ARM/host checks for storage isolation, render ownership, coordinate alignment, text limits, touch routing and progress; release packaging with ELF audit, build receipts, applicable licenses and relinkable objects.
+
+### Changed
+
+- The KUAL supervisor supports separate diagnostic/UI profiles and logs, a five-minute preview session and six-minute recovery watchdog. UI sessions also pause and resume volumd when present.
+- Kindle-only allocation and TXT short-read handling support the old glibc ABI without changing the ESP32 path.
+
 ## [Kindle PW1 validation 0.1.0] - 2026-10-13
 
 ### Added

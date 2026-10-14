@@ -188,5 +188,10 @@ bool Txt::readContent(uint8_t* buffer, size_t offset, size_t length) const {
   }
 
   size_t bytesRead = file.read(buffer, length);
+#ifdef CROSSINK_PLATFORM_KINDLE
+  // Native callers must not render uninitialized bytes after a short read.
+  return bytesRead == length;
+#else
   return bytesRead > 0;
+#endif
 }

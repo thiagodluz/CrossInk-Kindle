@@ -263,3 +263,36 @@ hardware, other orientations, long reading sessions or suspend/resume.
 The next implementation milestone is the reader-facing HAL and compatibility
 layer: sandboxed POSIX storage, joinable tasks/render synchronization, and a
 minimal CrossInk activity using the validated display and input backends.
+
+
+### Native TXT preview 0.2.0 — 2026-10-14
+
+This is an intermediate integration, awaiting device validation. The target now
+compiles the original GfxRenderer, EpdFont/font cache/decompressor, built-in Bitter
+and Lexend fonts, FreeInkUI from the pinned SDK, I18n and Txt. A small PortApp
+provides a bounded folder browser and TXT preview. It does not yet use
+ActivityManager, UITheme, TxtReaderActivity, settings stores or the EPUB engine.
+No complete FreeRTOS task/notification API is claimed: the preview has its own
+joinable pthread render owner and a narrow mutex/time compatibility surface.
+
+NativeDisplay preserves the renderer's canonical landscape buffer (1024x758,
+1bpp) and converts its portrait output to physical 758x1024, 8bpp pixels. Evdev
+coordinates pass through the exact inverse transform before SDK hit testing.
+Grayscale capability is disabled; full and partial updates remain synchronous.
+
+NativeStorage implements the existing HalStorage/HalFile interface under a root
+directory descriptor, walks components with openat/O_NOFOLLOW, rejects parent
+traversal, and writes progress by fsync plus rename. Renderer and file state have
+one worker owner; main only enqueues fixed-size touch jobs and joins before
+framebuffer restoration. Finite waits use CLOCK_MONOTONIC.
+
+The UI has bounded TXT/entry/page sizes, five-minute sessions and a six-minute
+supervisor watchdog. UI mode pauses volumd when present to prevent concurrent
+USB mounting. Suspend, light control, battery information and networking are
+unavailable; the normal Exit path returns to Amazon UI. Actual hardware checks
+for the new renderer/touch path, volumd handling and progress remain required.
+
+The next milestone is integrating the original activity lifecycle and required
+FreeRTOS notification semantics, followed by EPUB parsing/layout/cache. Shared
+changes in Memory, GfxRenderer and Txt are gated by CROSSINK_PLATFORM_KINDLE;
+the SDK gitlink and ESP32 implementations remain unchanged.

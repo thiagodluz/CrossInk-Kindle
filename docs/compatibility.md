@@ -21,23 +21,23 @@ The status describes the **Kindle port**, not upstream CrossInk. Until a feature
 | Later | Retained as a possible post-beta feature. |
 | — | No implementation target. |
 
-No runtime feature is marked Supported yet because no CrossInk Kindle executable has been tested on the target device.
+The standalone diagnostic 0.1.0 was tested on a PW1 in two runs on 2026-10-14. Supported below refers only to that confirmed diagnostic behavior. The 0.2.0 native TXT preview has passed local/ARM emulation checks but awaits device validation; full activities and EPUB remain Planned.
 
 ## Platform and hardware
 
 | Feature | Status | Target | Kindle approach or reason |
 | --- | --- | --- | --- |
-| Native application startup | Planned | Prototype | Build an ARM Linux executable for the PW1 userspace. |
-| KUAL or equivalent launcher | Planned | Prototype | Launch beside the Amazon reader from an isolated application directory. |
-| Safe exit to Amazon interface | Planned | Prototype | Restore display ownership and return to the normal Kindle UI. |
+| Native application startup | Supported | Prototype | Build an ARM Linux executable for the PW1 userspace. |
+| KUAL or equivalent launcher | Supported | Prototype | Launch beside the Amazon reader from an isolated application directory. |
+| Safe exit to Amazon interface | Supported | Prototype | Restore display ownership and return to the normal Kindle UI. |
 | Application removal and recovery | Planned | Prototype | Provide scripts that remove only port-owned files. |
-| Versioned diagnostic logs | Planned | Prototype | Replace ESP32 serial logging with redacted files on internal storage. |
-| Full e-ink refresh | Planned | Prototype | Add a Kindle display backend and verify waveform behavior on hardware. |
-| Partial e-ink refresh | Planned | Prototype | Required for usable menus and page turns. |
+| Versioned diagnostic logs | Supported | Prototype | Replace ESP32 serial logging with redacted files on internal storage. |
+| Full e-ink refresh | Supported | Prototype | Add a Kindle display backend and verify waveform behavior on hardware. |
+| Partial e-ink refresh | Supported | Prototype | Required for usable menus and page turns. |
 | Grayscale rendering | Planned | Alpha | Adapt CrossInk image and antialiasing output to the Kindle framebuffer. |
-| Portrait orientation | Planned | Prototype | Initial fixed orientation. |
+| Portrait orientation | Supported | Prototype | Initial fixed orientation. |
 | Landscape and inverted orientations | Planned | Beta | Add after coordinate and refresh mapping are stable. |
-| Capacitive touchscreen | Planned | Prototype | Read Linux input events and map them to CrossInk logical actions. |
+| Capacitive touchscreen | Supported | Prototype | Read Linux input events and map them to CrossInk logical actions. |
 | Multitouch gestures | Planned | Later | Depends on the PW1 input driver's reported contacts. |
 | Physical front buttons | Not applicable | — | The PW1 has no CrossInk-style front navigation buttons. |
 | Physical side/volume buttons | Not applicable | — | The PW1 has no CrossInk-style side navigation buttons. |

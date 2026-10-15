@@ -33,9 +33,11 @@ contra caminhos que escapem dessa pasta de dados.
 
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
-que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1. O caminho
-de energia da 0.3.4 e a recuperação de um travamento real ainda precisam ser
-validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
+que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1.
+Na 0.3.4, o botão de repouso, o salvamento e a saída normal por evento de energia
+foram confirmados no aparelho. A recuperação de um travamento real ainda precisa
+ser validada; o log desse teste rejeitou o sinal enviado ao lançador.
+Se necessário, use KUAL → CrossInk PW1 →
 **Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
 ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
 
@@ -49,7 +51,7 @@ ser validado no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
-## Teste do botão liga/desliga — reteste na 0.3.4
+## Teste do botão liga/desliga — saída validada na 0.3.4
 
 1. Abra o TXT de exemplo e avance até a página 2.
 2. Pressione e solte o botão liga/desliga uma vez.
@@ -68,8 +70,10 @@ antes de ocultar a barra; envie `crossink/logs/ui.log` nesse caso.
 
 O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
 `reason=power` e das linhas `resumed`. Caso o aplicativo não responda ao pedido de
-saída, o lançador envia encerramento forçado após 2 segundos; a última página
-pode não ter sido salva nesse caso. O auxiliar de eventos é encerrado e aguardado
+saída, a proteção prevista é o encerramento forçado pelo lançador após 2 segundos;
+a última página pode não ter sido salva nesse caso. Essa proteção ainda não está
+validada no aparelho: o teste abaixo rejeitou o sinal destinado ao lançador.
+O auxiliar de eventos é encerrado e aguardado
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
 A 0.3.3 abriu normalmente, mas o log recebeu zero bytes de eventos e mostrou
 `powerd` em `active` antes de devolver o controle ao Kindle. Isso direcionou a
@@ -88,10 +92,18 @@ sem repor a imagem antiga quando o evento de energia provoca a saída. Uma falha
 ao restaurar a barra mantém o registro para tentar novamente pelo KUAL →
 **Restaurar interface do Kindle**.
 
-Instale, abra o TXT e pressione o botão uma vez. Além do repouso e da retomada
-da página, observe se a barra do Kindle invade a leitura e se volta ao sair.
-Envie `ui.log` após o teste. Se o botão ainda não responder, use **Sair** e copie
-o log antes de reabrir o aplicativo.
+Em 14/10/2026, o usuário confirmou que o repouso funcionou na 0.3.4. O
+[`ui(5).log` preservado](../../docs/validation/pw1-0.3.4-power-ui.txt) registra
+`goingToScreenSaver`, página 4 salva, worker encerrado, tela liberada,
+`exit_status=0`, estado `screenSaver`, `volumd` retomado e `status_bar=show`
+com sucesso. Também registra `No matching parent launcher for signal=12`:
+a saída normal funcionou, mas a comunicação que ativa a recuperação forçada
+continua pendente. O log não comprova suspensão com o aplicativo aberto,
+despertar/reabrir na página 4 nem ausência visual de sobreposição da barra.
+
+O teste restante é despertar o Kindle, reabrir o mesmo TXT e conferir a página
+4. Observe também se a barra invade a leitura e se volta na saída pelo botão
+**Sair**. Envie `ui.log` e `ui.previous.log` para documentar esses caminhos.
 
 ## Arquivos e limites atuais
 
@@ -129,4 +141,6 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a integração de energia da 0.3.4 ainda requer o teste físico descrito acima.
+validam a lógica. A saída por botão de repouso da 0.3.4 foi confirmada no PW1;
+despertar/reabrir, recuperação forçada e os demais limites descritos acima
+continuam pendentes.

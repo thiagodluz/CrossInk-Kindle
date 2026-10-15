@@ -8,7 +8,7 @@
 
 ### Added
 
-- Regression checks for running CVM/WM heartbeats, hide/show failures and recovery retry, bounded Pillow commands, and the survival of a separately painted stock sleep framebuffer through reader cleanup. Hardware validation of this cooperative path remains pending.
+- Regression checks for running CVM/WM heartbeats, hide/show failures and recovery retry, bounded Pillow commands, and the survival of a separately painted stock sleep framebuffer through reader cleanup. Physical power-button save-and-exit was validated on 2026-10-14: event received, page 4 saved, worker joined, display released, exit status 0 and stock screenSaver state. The launcher signal was rejected, so its two-second forced-recovery path remains unvalidated; wake/reopen and in-app suspend/resume were not established by this test.
 
 ## [Kindle PW1 TXT preview 0.3.3] - 2026-10-14
 

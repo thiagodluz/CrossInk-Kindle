@@ -313,7 +313,7 @@ the Amazon UI after five minutes. Those two confirmations are user reports,
 without new complete logs. Forced-crash recovery and power behavior remain
 unproven on the device.
 
-### Power-event handoff 0.3.x — device validation pending
+### Power-event handoff 0.3.x — initial implementation and earlier device failures
 
 `KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd <explicit-event-list>`
 subscriber. The native input loop consumes bounded lines from a nonblocking terminal
@@ -449,7 +449,33 @@ exit and helper-failure rollback retain restoration. A syscall-modeled framebuff
 regression covers both paths; launcher checks verify running framework heartbeats,
 status-bar rollback, retry after failed restoration and already-stopped framework
 refusal. ARM checks still require the legacy sysroot and the NSS symbol guard.
-The new policy needs device validation for events, overlay-free reading, normal
-bar restoration and stock sleep/wake; no hardware fix is claimed in advance.
+The subsequent device test below validates event-driven save-and-exit. Visual
+overlay behavior, normal Exit bar restoration, wake/reopen and forced recovery
+remain outside that test's established evidence.
 
 Primary reference: https://github.com/koreader/koreader/blob/master/platform/kindle/koreader.sh
+
+
+### 0.3.4 power-button device validation — 2026-10-14
+
+The user reported that the power button worked. The supplied `ui(5).log` is
+preserved byte-for-byte as [pw1-0.3.4-power-ui.txt](validation/pw1-0.3.4-power-ui.txt),
+SHA-256 `a0df8983125914836917aeb2393078f71391366a95b367a0c57a19dd2997467c`.
+Its header identifies package 0.3.4 and device time 22:46:41 on 2026-10-14;
+the unusual timezone suffix is retained as emitted by the device.
+
+| Observation | Evidence | Conclusion |
+| --- | --- | --- |
+| Stock framework remains active | `framework=running` for CVM/awesome; `framework_policy=cooperative` | Cooperative launch path exercised |
+| Power-button transition | `power_event=goingToScreenSaver 2` | One recognized power event received |
+| TXT progress | Opens at page 3, advances to 4, `progress_saved=yes page=4` | Page 4 saved during the power exit |
+| Reader cleanup | `exit joined=yes display_released=1 interrupted=0 reason=power`; `exit_status=0` | Worker joined and framebuffer ownership released without an application error |
+| Stock state and cleanup | `before-release value=screenSaver`; `resumed ... volumd`; `status_bar=show exit=0` | Stock screenSaver state observed; paused process resumed and bar restoration command succeeded |
+| Launcher recovery request | `No matching parent launcher for signal=12` | Launcher notification rejected; two-second forced-recovery handshake not activated in this run |
+
+This is a successful cooperative save-and-exit test, not an in-memory
+suspend/resume test. The signal failure did not prevent normal shutdown, but
+must remain tracked as an unresolved recovery defect. This run does not validate
+wake/reopen at page 4, forced cleanup of a blocked reader, absence of visual bar
+overlays, or restoration after a separate normal Exit action. Earlier 0.2.1
+progress/normal-exit validation remains separate evidence.

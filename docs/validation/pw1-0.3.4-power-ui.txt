@@ -1,0 +1,49 @@
+Wed Oct 14 22:46:41 GMT-3:0100 2026
+launcher=CrossInk PW1 package 0.3.4 mode=ui
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+power_listener=started pid=23344 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+power_listener=stopped reaped=1 lines_received=0 bytes_received=0 partial_bytes=0
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+power_state stage=before-prepare value=active exit=0 timeout=0 truncated=0
+paused pid=1144 name=volumd
+framework=running pid=12742 name=cvm
+framework=running pid=1485 name=awesome
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+status_bar=hide exit=0 timeout=0 truncated=0
+framework_policy=cooperative status_bar=soft-hidden
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+power_state stage=after-prepare value=active exit=0 timeout=0 truncated=0
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+power_listener=started pid=23367 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+[INF] [STO] directory=/books entries=1
+refresh marker=1 mode=full result=ok
+[INF] [UI] frame=1 view=files page=1/1
+[DBG] [UI] touch=down logical=484,159
+[DBG] [UI] touch=up logical=484,160
+[INF] [UI] action=1 value=0
+[INF] [TXT] opened=/books/Boas-vindas.txt bytes=3148 pages=5 resume_page=3
+refresh marker=2 mode=partial result=ok
+[INF] [UI] frame=2 view=txt page=3/5
+[DBG] [UI] touch=down logical=493,966
+[DBG] [UI] touch=up logical=493,966
+[INF] [UI] action=4 value=0
+refresh marker=3 mode=partial result=ok
+[INF] [UI] frame=3 view=txt page=4/5
+power_raw=goingToScreenSaver 2 
+power_event=goingToScreenSaver 2 
+[INF] [UI] power_handoff=requested event=1
+[ERR] [UI] No matching parent launcher for signal=12
+[INF] [TXT] progress_saved=yes page=4
+power_listener=stopped reaped=1 lines_received=1 bytes_received=22 partial_bytes=0
+[INF] [UI] exit joined=yes display_released=1 interrupted=0 reason=power
+exit_status=0
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+power_state stage=before-release value=screenSaver exit=0 timeout=0 truncated=0
+resumed pid=1144 name=volumd
+CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)
+status_bar=show exit=0 timeout=0 truncated=0

@@ -12,6 +12,10 @@
 
 namespace kindle {
 namespace {
+// Match KOReader's stock CLI subscription on legacy Kindle firmware. A live
+// wildcard listener is not proof that these named power events were subscribed.
+constexpr const char* powerEvents =
+    "goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend";
 bool closeOnExec(int fd) { return fcntl(fd, F_SETFD, FD_CLOEXEC) == 0; }
 bool named(const char* line, const char* event) {
   const size_t length = std::strlen(event);
@@ -23,6 +27,7 @@ bool named(const char* line, const char* event) {
 bool PowerMonitor::start(const char* command) {
   if (fd_ >= 0 || child_ > 0 || !command || !*command) return false;
   failed_ = false;
+  lines_ = 0;
   used_ = 0;
   overflow_ = false;
   int output[2], execution[2];
@@ -56,7 +61,7 @@ bool PowerMonitor::start(const char* command) {
                            const_cast<char*>("-s"),
                            const_cast<char*>("0"),
                            const_cast<char*>("com.lab126.powerd"),
-                           const_cast<char*>("*"),
+                           const_cast<char*>(powerEvents),
                            nullptr};
       execve(command, arguments, environ);
     }
@@ -84,7 +89,8 @@ bool PowerMonitor::start(const char* command) {
     stop();
     return false;
   }
-  std::printf("power_listener=started pid=%ld source=com.lab126.powerd events=all\n", static_cast<long>(child_));
+  std::printf("power_listener=started pid=%ld source=com.lab126.powerd events=%s\n", static_cast<long>(child_),
+              powerEvents);
   return true;
 }
 
@@ -111,6 +117,11 @@ PowerEvent PowerMonitor::poll() {
     }
     if (byte == '\n') {
       line_[used_] = '\0';
+      ++lines_;
+      if (overflow_)
+        std::fprintf(stderr, "power_raw=oversized-discarded\n");
+      else
+        std::printf("power_raw=%s\n", line_);
       const auto event = overflow_ ? PowerEvent::None : parse(line_);
       if (event != PowerEvent::None) std::printf("power_event=%s\n", line_);
       used_ = 0;
@@ -153,7 +164,7 @@ void PowerMonitor::stop() {
       } while (result < 0 && errno == EINTR);
     }
   }
-  std::printf("power_listener=stopped reaped=%d\n", result == child_);
+  std::printf("power_listener=stopped reaped=%d lines_received=%u\n", result == child_, lines_);
   child_ = -1;
 }
 }  // namespace kindle

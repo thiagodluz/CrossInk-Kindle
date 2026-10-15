@@ -25,6 +25,7 @@ class PowerMonitor {
   pid_t child_ = -1;
   char line_[160]{};
   size_t used_ = 0;
+  unsigned lines_ = 0;
   bool overflow_ = false, failed_ = false;
 };
 }  // namespace kindle

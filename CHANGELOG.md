@@ -1,3 +1,10 @@
+## [Kindle PW1 TXT preview 0.3.1] - 2026-10-14
+
+### Changed
+
+- Replaced the wildcard power-event subscription with KOReader's explicit stock CLI event list for legacy Kindle compatibility.
+- Log each received LIPC line and the total received before helper shutdown. The 0.3.0 device test did not react to the power button and stock sleep appeared immediately after normal exit; its root cause is still unconfirmed, and this version requires a new device log.
+
 ## [Kindle PW1 TXT preview 0.3.0] - 2026-10-14
 
 ### Added

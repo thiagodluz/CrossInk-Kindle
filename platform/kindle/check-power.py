@@ -16,7 +16,8 @@ with tempfile.TemporaryDirectory(prefix='crossink-power-') as directory:
     helper = base / 'lipc-wait-event'
     helper.write_text('''#!/usr/bin/env python3
 import os,sys,time,signal
-assert sys.argv[1:]==['-m','-s','0','com.lab126.powerd','*'],sys.argv
+assert sys.argv[1:]==['-m','-s','0','com.lab126.powerd',
+ 'goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend'],sys.argv
 mode=os.environ['MOCK_POWER_MODE']
 if mode=='heartbeat':
     with open(os.environ['MOCK_POWER_HEARTBEAT'],'wb',buffering=0) as f:
@@ -39,6 +40,17 @@ while True: time.sleep(1)
         result = subprocess.run([binary,str(helper),str(expected)],env=env,text=True,
                                 capture_output=True,timeout=12)
         assert result.returncode==0, result.stdout+result.stderr
+        assert 'lines_received=' in result.stdout, 'subscriber diagnostics missing'
+        assert 'events=goingToScreenSaver,outOfScreenSaver,' in result.stdout, 'named subscription missing'
+        if mode!='failed':
+            expected_lines = 4 if mode=='overflow' else 1 if mode in ('late','resume') else 3
+            assert result.stdout.count(f'lines_received={expected_lines}\n')==2, 'received count or restart reset incorrect'
+            assert 'power_raw=' in result.stdout, 'raw event diagnostics missing'
+        if mode in ('split','overflow'):
+            assert 'power_raw=battLevelChanged 72' in result.stdout, 'unknown events hidden'
+            assert 'power_event=goingToScreenSaverWrong' not in result.stdout, 'invalid event accepted'
+        if mode=='overflow':
+            assert 'power_raw=oversized-discarded' in result.stderr, 'oversized event diagnostic missing'
         print(f'power_check {mode}=ok',flush=True)
     heartbeat = base / 'heartbeat'
     env = dict(os.environ,MOCK_POWER_MODE='heartbeat',MOCK_POWER_HEARTBEAT=str(heartbeat))

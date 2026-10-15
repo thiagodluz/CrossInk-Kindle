@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.0
+# CrossInk PW1 — prévia TXT 0.3.1
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -34,7 +34,7 @@ contra caminhos que escapem dessa pasta de dados.
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
 que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1. O caminho
-de energia da 0.3.0 e a recuperação de um travamento real ainda precisam ser
+de energia da 0.3.1 e a recuperação de um travamento real ainda precisam ser
 validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
 **Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
 ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
@@ -48,7 +48,7 @@ encerramento forçado ainda precisam ser validados no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
-## Teste do botão liga/desliga — novo na 0.3.0
+## Teste do botão liga/desliga — novo na 0.3.1
 
 1. Abra o TXT de exemplo e avance até a página 2.
 2. Pressione e solte o botão liga/desliga uma vez.
@@ -70,7 +70,14 @@ O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
 saída, o lançador envia encerramento forçado após 2 segundos; a última página
 pode não ter sido salva nesse caso. O auxiliar de eventos é encerrado e aguardado
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
-A integração com o firmware real do PW1 ainda precisa deste teste.
+A integração com o firmware real do PW1 ainda precisa deste teste. A 0.3.0
+não reagiu ao botão no teste do usuário e o Kindle entrou em repouso assim que
+o usuário saiu do aplicativo. O log registrou uma saída normal, sem evento de
+energia reconhecido; a causa ainda não foi determinada.
+A 0.3.1 usa os nomes explícitos de eventos do KOReader e registra `power_raw=`
+e `lines_received=` para distinguir ausência de eventos de falha na interpretação.
+Se o botão não responder, saia pelo botão Sair e envie `ui.log` antes de reabrir
+o aplicativo, para preservar o registro da tentativa.
 
 ## Arquivos e limites atuais
 
@@ -106,4 +113,4 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a integração de energia da 0.3.0 ainda requer o teste físico descrito acima.
+validam a lógica, mas a integração de energia da 0.3.1 ainda requer o teste físico descrito acima.

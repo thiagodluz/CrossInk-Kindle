@@ -313,9 +313,9 @@ the Amazon UI after five minutes. Those two confirmations are user reports,
 without new complete logs. Forced-crash recovery and power behavior remain
 unproven on the device.
 
-### Power-event handoff 0.3.0 — device validation pending
+### Power-event handoff 0.3.x — device validation pending
 
-`KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd '*'`
+`KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd <explicit-event-list>`
 subscriber. The native input loop consumes bounded lines from a nonblocking pipe
 and recognizes sleep/suspend/wake events independently of renderer ownership.
 A recognized event asks the launcher for a two-second shutdown deadline, stops
@@ -342,3 +342,18 @@ References checked for this phase:
 Physical test: save a known TXT page, briefly press power, wake, reopen through
 KUAL and verify the page, controls and stock UI. Supply ui.log and ui.previous.log.
 A new firmware missing the helper should fail preflight before pausing stock UI.
+
+### Power button did not react on 0.3.0 — 2026-10-14
+
+The user reported that briefly pressing power had no visible effect, then that
+the Kindle entered sleep immediately after leaving CrossInk. The supplied
+`ui(1).log` shows both subscriber startups, no recognized power event or helper
+failure, and a normal Exit followed by resumption of volumd/cvm/awesome. This
+suggests a pending stock sleep transition while the UI is paused; it does not
+prove whether the subscription missed an event or the stock event was delayed.
+The 0.3.1 subscriber replaces `*` with the exact explicit event list used by
+KOReader's `input/input-kindle.h`, and logs every complete raw event and the
+received-line count. This addresses a compatibility difference and improves
+observability; it is not proof that the hardware failure is fixed.
+
+Primary reference: https://github.com/koreader/koreader-base/blob/master/input/input-kindle.h

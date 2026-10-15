@@ -25,7 +25,15 @@ def audit(binary, tools):
     match = re.search(r'OS: Linux, ABI: (\d+\.\d+\.\d+)', sections['-n'])
     if not match or tuple(map(int, match[1].split('.'))) > (2,6,31):
         raise RuntimeError('Executable does not match PW1 minimum Linux ABI')
-    return '\n'.join(sections.values())
+    # ELF NEEDED is not enough: old static glibc can dlopen NSS modules for
+    # account/group lookup (grantpt did this in 0.3.2 and crashed on the PW1).
+    symbols = {line.split()[-1] for line in run(tools/(TRIPLE+'-nm'),binary).splitlines() if line.split()}
+    forbidden = {'grantpt','__grantpt','getgrnam','getgrnam_r','__getgrnam_r',
+                 'getpwnam','getpwuid','getaddrinfo','__nss_database_lookup'}
+    unexpected = sorted(symbols & forbidden)
+    if unexpected:
+        raise RuntimeError('Static PW1 binary pulls NSS/account lookup: '+', '.join(unexpected))
+    return '\n'.join(sections.values())+'\nnss_account_lookup=absent\n'
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -100,13 +108,13 @@ def main():
         entries['crossink/development/ui-objects/'+path.name]=path
     for path in (output/'diagnostic/diagnostic-objects').glob('*.o'):
         entries['crossink/development/diagnostic-objects/'+path.name]=path
-    manifest = {'version':'0.3.2','is_full_reader':False,'formats':['TXT UTF-8'],
+    manifest = {'version':'0.3.3','is_full_reader':False,'formats':['TXT UTF-8'],
                 'source_commit':receipt['source_commit'],'source_dirty':receipt['source_dirty'],
                 'sdk_commit':receipt['sdk_commit'],'session_timeout_seconds':300,
                 'watchdog_seconds':360,'power_policy':'save-and-exit-on-powerd-event',
                 'power_helper':'/usr/bin/lipc-wait-event','power_grace_seconds':2,'linkage':'static','minimum_kernel':'2.6.31',
                 'files_sha256':{name:sha(path) for name,path in entries.items()}}
-    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.3.2.zip'
+    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.3.3.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as package:
         for name,path in entries.items():
             info=zipfile.ZipInfo(name,(2026,10,14,0,0,0))

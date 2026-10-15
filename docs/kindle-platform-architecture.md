@@ -384,3 +384,37 @@ The event counters additionally distinguish zero bytes from an incomplete line.
 References: KOReader `frontend/device/kindle/powerd.lua:getPowerdState`,
 https://man7.org/linux/man-pages/man3/posix_openpt.3.html and
 https://www.gnu.org/software/libc/manual/html_node/Buffering-Concepts.html.
+
+
+### 0.3.2 preflight abort — NSS-free PTY preparation in 0.3.3
+
+The supplied `ui(3).log` shows version 0.3.2 passing display and touch identity
+checks, then aborting on `__getpagesize`'s `_rtld_global_ro._dl_pagesize != 0`
+assertion. There is no `paused` line: the stock UI was never stopped by this run.
+
+The newly introduced `grantpt` in glibc 2.12 resolves the `tty` group through
+`__getgrnam_r`, bringing the NSS loader into the static binary. Static glibc
+programs can load shared NSS modules and the system's shared libc/loader; the
+upstream glibc discussion documents exactly this page-size assertion in that
+path. The 0.3.2 binary includes grantpt/group/NSS symbols; 0.3.1 did not.
+
+The 0.3.3 backend keeps the terminal transport, omits grantpt on this Linux
+backend and verifies the devpts slave's character-device type, effective owner,
+owner read/write bits and absence of group-read/other access. It refuses an
+unexpected configuration without chmod/chown, consulting group names or
+modifying system libraries. Unlock/name/termios operations remain. The supplied
+PW1 mount report records devpts with gid=5 and mode=620.
+
+Regression evidence: the old ARM monitor works under QEMU without target shared
+libraries, but crashes with `-L <kindle5-sysroot>`. The trace opens nsswitch.conf,
+libnss_files.so.2, libc.so.6 and ld-linux.so.3 before SIGSEGV. This reproduces a
+legacy loading failure, not the exact on-device assertion. The corrected ARM
+monitor passes in that same environment, with none of those shared libraries
+opened. `check-power.py --qemu ... --sysroot ...` now exercises this case, and
+release auditing rejects account/NSS symbols before stripping the executable.
+These checks do not replace a hardware opening/power-button retest.
+
+Primary references:
+- https://github.com/bminor/glibc/blob/glibc-2.12.2/sysdeps/unix/grantpt.c
+- https://sourceware.org/legacy-ml/libc-alpha/2010-08/msg00051.html
+- https://sourceware.org/pipermail/glibc-cvs/2020q4/070779.html

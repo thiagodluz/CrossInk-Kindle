@@ -505,7 +505,7 @@ class PortApp {
 
 int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IOLBF, 0);
-  std::puts("CrossInk PW1 UI preview 0.3.2 (native renderer, FreeInkUI and TXT module)");
+  std::puts("CrossInk PW1 UI preview 0.3.3 (native renderer, FreeInkUI and TXT module)");
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
   if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::PowerMonitor::logState(argv[2]) ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--probe")) {

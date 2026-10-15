@@ -174,7 +174,7 @@ trap '' HUP
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.2 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.3 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1

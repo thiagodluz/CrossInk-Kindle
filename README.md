@@ -33,12 +33,12 @@ The PW1 is the only target for this experiment. Other Kindle models are not supp
 | Reading app | Native-renderer TXT preview; basic reading/navigation validated on PW1 (0.2.1) |
 | EPUB reading | Planned |
 | Reading progress persistence | TXT save/reopen/relaunch validated on PW1 (0.2.1) |
-| Power button / sleep | Save-and-exit handoff under investigation after failed 0.3.0/0.3.1 device tests; 0.3.2 adds terminal transport and power-state diagnostics |
+| Power button / sleep | Power handoff under investigation; 0.3.3 fixes the 0.3.2 startup regression, pending hardware retest |
 | Front light, battery, in-app suspend/resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.3.2 |
+| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.3.3 |
 
-The hardware diagnostic and the basic TXT preview (0.2.1) have been tested on the user's PW1: page controls, progress persistence across launches, normal exit, the corner-hold exit gesture and the five-minute session limit worked. Version 0.3.0 adds a power-event handoff that saves and exits when the Kindle begins to sleep; the first 0.3.0 device test did not react to the power button. Version 0.3.1 also failed on the device, receiving zero complete event lines. Version 0.3.2 uses a terminal for helper output and adds bounded read-only power-state diagnostics; the root cause and device behavior remain unconfirmed. The preview remains an experimental proof of concept with no EPUB support.
+The hardware diagnostic and the basic TXT preview (0.2.1) have been tested on the user's PW1: page controls, progress persistence across launches, normal exit, the corner-hold exit gesture and the five-minute session limit worked. Version 0.3.0 adds a power-event handoff that saves and exits when the Kindle begins to sleep; the first 0.3.0 device test did not react to the power button. Version 0.3.1 also failed on the device, receiving zero complete event lines. Version 0.3.2 added terminal transport and state diagnostics but aborted during device preflight. Version 0.3.3 removes the incompatible legacy NSS lookup and adds runtime-aware ARM checks. Opening and power behavior still require hardware retesting. The preview remains an experimental proof of concept with no EPUB support.
 
 ## Development plan
 
@@ -73,13 +73,13 @@ Existing Kindle projects such as [FBInk](https://github.com/NiLuJe/FBInk), [KORe
 
 ## Installation
 
-Use the [0.3.2 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
+Use the [0.3.3 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
 
 The preview requires a real-device test of the new renderer, page controls and saved progress. It is an application package, not firmware; do not flash ESP32 firmware to a Kindle.
 
 ## Contributing
 
-Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.3.2 power handoff on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
+Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.3.3 power handoff on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
 
 When reporting results from a Kindle, remove serial numbers, account information, Wi-Fi credentials, and other personal data from logs.
 

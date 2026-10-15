@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.2
+# CrossInk PW1 — prévia TXT 0.3.3
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -34,7 +34,7 @@ contra caminhos que escapem dessa pasta de dados.
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
 que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1. O caminho
-de energia da 0.3.2 e a recuperação de um travamento real ainda precisam ser
+de energia da 0.3.3 e a recuperação de um travamento real ainda precisam ser
 validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
 **Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
 ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
@@ -49,7 +49,7 @@ ser validado no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
-## Teste do botão liga/desliga — novo na 0.3.2
+## Teste do botão liga/desliga — reteste na 0.3.3
 
 1. Abra o TXT de exemplo e avance até a página 2.
 2. Pressione e solte o botão liga/desliga uma vez.
@@ -73,9 +73,13 @@ pode não ter sido salva nesse caso. O auxiliar de eventos é encerrado e aguard
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
 A 0.3.0 e a 0.3.1 não reagiram ao botão no teste do usuário. Na 0.3.1, o
 monitor recebeu zero linhas completas; a troca de nomes dos eventos não resolveu.
-A 0.3.2 usa um terminal virtual para a saída do auxiliar, para permitir entrega
-imediata quando ele utiliza buffer por linha. Esse caso foi reproduzido nos
-testes locais, mas a causa no PW1 continua sem confirmação.
+A 0.3.2 adicionou um terminal virtual, mas abortou antes de abrir a interface,
+com uma falha `__getpagesize` da glibc antiga durante a preparação do terminal.
+A 0.3.3 remove a consulta de grupos incompatível dessa preparação e verifica as
+permissões que o Linux atribuiu ao terminal, sem alterá-las. O teste ARM agora
+inclui as bibliotecas antigas que expõem essa falha. Primeiro confirme que o
+aplicativo abre; em seguida, repita o teste do botão. A causa original da falta
+de eventos de energia continua em investigação.
 
 O log inclui `transport=pty`, `bytes_received=`, `partial_bytes=` e três
 consultas de estado: `power_state stage=before-pause`, `after-pause` e
@@ -119,4 +123,4 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a integração de energia da 0.3.2 ainda requer o teste físico descrito acima.
+validam a lógica, mas a integração de energia da 0.3.3 ainda requer o teste físico descrito acima.

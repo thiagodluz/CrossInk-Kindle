@@ -9,8 +9,22 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary', required=True, type=Path)
+parser.add_argument('--qemu', type=Path)
+parser.add_argument('--sysroot', type=Path)
 args = parser.parse_args()
 binary = str(args.binary.resolve())
+if bool(args.qemu) != bool(args.sysroot):
+    parser.error('--qemu and --sysroot must be supplied together for the legacy runtime check')
+launch = [binary]
+if args.qemu:
+    launch = [str(args.qemu.resolve()),'-L',str(args.sysroot.resolve()),binary]
+    # Merely running an ARM static binary without a target sysroot hides the
+    # legacy grantpt/NSS crash: dlopen cannot find its ARM shared libraries.
+    traced = subprocess.run([launch[0],'-strace',*launch[1:],'/bin/false','4'],
+                            text=True,capture_output=True,timeout=8)
+    assert traced.returncode==0,traced.stdout+traced.stderr
+    assert not any(name in traced.stderr for name in ('libnss_','/lib/libc.so','/lib/ld-linux')), traced.stderr
+    print('power_check legacy-runtime-no-NSS=ok',flush=True)
 with tempfile.TemporaryDirectory(prefix='crossink-power-') as directory:
     base = Path(directory)
     helper = base / 'lipc-wait-event'
@@ -49,7 +63,7 @@ int main() {
     subprocess.run(['g++',str(buffered_source),'-o',str(buffered_helper)],check=True)
     for mode, expected in [('buffered',1),('split',1),('overflow',1),('late',2),('resume',3),('failed',4)]:
         env = dict(os.environ, MOCK_POWER_MODE=mode)
-        result = subprocess.run([binary,str(buffered_helper if mode=='buffered' else helper),str(expected)],env=env,text=True,
+        result = subprocess.run([*launch,str(buffered_helper if mode=='buffered' else helper),str(expected)],env=env,text=True,
                                 capture_output=True,timeout=12)
         assert result.returncode==0, result.stdout+result.stderr
         assert 'bytes_received=' in result.stdout and 'partial_bytes=' in result.stdout, 'subscriber diagnostics missing'
@@ -66,7 +80,7 @@ int main() {
         print(f'power_check {mode}=ok',flush=True)
     heartbeat = base / 'heartbeat'
     env = dict(os.environ,MOCK_POWER_MODE='heartbeat',MOCK_POWER_HEARTBEAT=str(heartbeat))
-    reader = subprocess.Popen([binary,str(helper),'hold'],env=env,stdout=subprocess.DEVNULL,
+    reader = subprocess.Popen([*launch,str(helper),'hold'],env=env,stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL)
     try:
         deadline=time.monotonic()+5
@@ -101,7 +115,7 @@ else:
     state_helper.chmod(0o755)
     for mode in ('ok','fail','overflow','empty','timeout','closed','flood'):
         started=time.monotonic()
-        result=subprocess.run([binary,str(state_helper),'state-'+mode],
+        result=subprocess.run([*launch,str(state_helper),'state-'+mode],
             env=dict(os.environ,MOCK_STATE_MODE=mode),text=True,capture_output=True,timeout=3)
         assert result.returncode==0,result.stdout+result.stderr
         assert 'power_state stage=check' in result.stdout

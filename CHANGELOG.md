@@ -1,3 +1,14 @@
+## [Kindle PW1 TXT preview 0.3.3] - 2026-10-14
+
+### Fixed
+
+- Avoid the legacy glibc `grantpt` account/group lookup while preparing the event terminal. On the PW1, 0.3.2 aborted during preflight with a `__getpagesize` assertion, before pausing the Amazon interface. The Linux devpts owner and permissions are now checked directly without changing them or loading NSS modules.
+- Package auditing now rejects account/NSS lookup symbols in static PW1 binaries: the absence of ELF shared dependencies alone did not prevent this runtime failure.
+
+### Changed
+
+- ARM power checks can run with `--qemu` and `--sysroot`, exercising the availability of legacy shared libraries and checking that the reader does not load NSS/libc through them. The 0.3.2 monitor crashes with those libraries available; the corrected monitor passes. Actual opening and power handoff still require a PW1 retest.
+
 ## [Kindle PW1 TXT preview 0.3.2] - 2026-10-14
 
 ### Changed

@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <sys/prctl.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
@@ -113,21 +114,41 @@ bool PowerMonitor::start(const char* command) {
   // it a terminal prevents an isolated event from waiting for a pipe buffer to
   // fill. Keep the terminal raw so bytes reach the existing line parser intact.
   output[0] = posix_openpt(O_RDWR | O_NOCTTY);
-  if (output[0] < 0) return false;
+  if (output[0] < 0) {
+    std::fprintf(stderr, "ERROR power PTY allocate errno=%d\n", errno);
+    return false;
+  }
+  // Linux devpts creates the slave with its owner/mode. Legacy grantpt()
+  // resolves the tty group through NSS, which can dlopen the Kindle's libc
+  // into this static executable and abort. Verify the kernel's permissions
+  // below instead of changing them or loading account/group modules.
   char terminal[128];
-  if (grantpt(output[0]) != 0 || unlockpt(output[0]) != 0 || ptsname_r(output[0], terminal, sizeof(terminal)) != 0) {
+  const int nameError = ptsname_r(output[0], terminal, sizeof(terminal));
+  if (nameError != 0 || unlockpt(output[0]) != 0) {
+    std::fprintf(stderr, "ERROR power PTY identify/unlock errno=%d\n", nameError ? nameError : errno);
     close(output[0]);
     return false;
   }
   output[1] = open(terminal, O_RDWR | O_NOCTTY);
   termios attributes{};
   if (output[1] < 0 || tcgetattr(output[1], &attributes) != 0) {
+    std::fprintf(stderr, "ERROR power PTY open/attributes errno=%d\n", errno);
     close(output[0]);
     if (output[1] >= 0) close(output[1]);
     return false;
   }
+  struct stat metadata{};
+  if (fstat(output[1], &metadata) != 0 || !S_ISCHR(metadata.st_mode) || metadata.st_uid != geteuid() ||
+      (metadata.st_mode & (S_IRUSR | S_IWUSR)) != (S_IRUSR | S_IWUSR) ||
+      (metadata.st_mode & (S_IRGRP | S_IROTH | S_IWOTH))) {
+    std::fprintf(stderr, "ERROR power PTY owner/mode rejected; no permissions changed\n");
+    close(output[0]);
+    close(output[1]);
+    return false;
+  }
   cfmakeraw(&attributes);
   if (tcsetattr(output[1], TCSANOW, &attributes) != 0) {
+    std::fprintf(stderr, "ERROR power PTY raw mode errno=%d\n", errno);
     close(output[0]);
     close(output[1]);
     return false;

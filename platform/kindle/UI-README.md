@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.1
+# CrossInk PW1 — prévia TXT 0.3.2
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -34,7 +34,7 @@ contra caminhos que escapem dessa pasta de dados.
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
 que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1. O caminho
-de energia da 0.3.1 e a recuperação de um travamento real ainda precisam ser
+de energia da 0.3.2 e a recuperação de um travamento real ainda precisam ser
 validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
 **Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
 ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
@@ -43,12 +43,13 @@ Para sair durante a sessão, **segure o canto superior direito por 5 segundos**
 (na área de aproximadamente 10% da largura e da altura). Soltar o dedo ou sair
 do canto cancela o gesto. O lançador tenta encerrar o aplicativo e força o
 encerramento após 2 segundos caso ele não responda; a interface do Kindle é
-retomada. Essa recuperação pode perder a posição ainda não salva. O gesto e o
-encerramento forçado ainda precisam ser validados no PW1.
+retomada. Essa recuperação pode perder a posição ainda não salva. O gesto foi
+confirmado na 0.2.1; o encerramento forçado de um travamento real ainda precisa
+ser validado no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
-## Teste do botão liga/desliga — novo na 0.3.1
+## Teste do botão liga/desliga — novo na 0.3.2
 
 1. Abra o TXT de exemplo e avance até a página 2.
 2. Pressione e solte o botão liga/desliga uma vez.
@@ -70,14 +71,19 @@ O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
 saída, o lançador envia encerramento forçado após 2 segundos; a última página
 pode não ter sido salva nesse caso. O auxiliar de eventos é encerrado e aguardado
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
-A integração com o firmware real do PW1 ainda precisa deste teste. A 0.3.0
-não reagiu ao botão no teste do usuário e o Kindle entrou em repouso assim que
-o usuário saiu do aplicativo. O log registrou uma saída normal, sem evento de
-energia reconhecido; a causa ainda não foi determinada.
-A 0.3.1 usa os nomes explícitos de eventos do KOReader e registra `power_raw=`
-e `lines_received=` para distinguir ausência de eventos de falha na interpretação.
-Se o botão não responder, saia pelo botão Sair e envie `ui.log` antes de reabrir
-o aplicativo, para preservar o registro da tentativa.
+A 0.3.0 e a 0.3.1 não reagiram ao botão no teste do usuário. Na 0.3.1, o
+monitor recebeu zero linhas completas; a troca de nomes dos eventos não resolveu.
+A 0.3.2 usa um terminal virtual para a saída do auxiliar, para permitir entrega
+imediata quando ele utiliza buffer por linha. Esse caso foi reproduzido nos
+testes locais, mas a causa no PW1 continua sem confirmação.
+
+O log inclui `transport=pty`, `bytes_received=`, `partial_bytes=` e três
+consultas de estado: `power_state stage=before-pause`, `after-pause` e
+`before-resume` (esta última na saída normal). As consultas usam somente
+`lipc-get-prop com.lab126.powerd state`, com prazo de um segundo cada; nenhum
+estado ou ajuste de energia é alterado. Um erro nessa consulta de diagnóstico
+não impede o retorno à interface. Se o botão não responder, saia pelo botão
+Sair e envie `ui.log` antes de reabrir o aplicativo.
 
 ## Arquivos e limites atuais
 
@@ -113,4 +119,4 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a integração de energia da 0.3.1 ainda requer o teste físico descrito acima.
+validam a lógica, mas a integração de energia da 0.3.2 ainda requer o teste físico descrito acima.

@@ -23,6 +23,7 @@ if mode=='heartbeat':
     with open(os.environ['MOCK_POWER_HEARTBEAT'],'wb',buffering=0) as f:
         while True: f.write(b'x'); time.sleep(.03)
 if mode=='failed': sys.exit(9)
+assert sys.stdout.isatty(), 'helper stdout must be a terminal'
 if mode=='overflow': os.write(1,b'x'*200+b'\\n')
 if mode=='resume': os.write(1,b'outOfScreenSaver 1\\n')
 elif mode=='late': os.write(1,b'readyToSuspend 0\\n')
@@ -35,16 +36,27 @@ signal.signal(signal.SIGTERM,signal.SIG_IGN)
 while True: time.sleep(1)
 ''')
     helper.chmod(0o755)
-    for mode, expected in [('split',1),('overflow',1),('late',2),('resume',3),('failed',4)]:
+    buffered_source = base / 'buffered.cpp'
+    buffered_source.write_text('''#include <cstdio>
+#include <unistd.h>
+int main() {
+    // Deliberately use default libc buffering: a pipe retains this small event.
+    std::puts("goingToScreenSaver 2");
+    for (;;) pause();
+}
+''')
+    buffered_helper = base / 'buffered-helper'
+    subprocess.run(['g++',str(buffered_source),'-o',str(buffered_helper)],check=True)
+    for mode, expected in [('buffered',1),('split',1),('overflow',1),('late',2),('resume',3),('failed',4)]:
         env = dict(os.environ, MOCK_POWER_MODE=mode)
-        result = subprocess.run([binary,str(helper),str(expected)],env=env,text=True,
+        result = subprocess.run([binary,str(buffered_helper if mode=='buffered' else helper),str(expected)],env=env,text=True,
                                 capture_output=True,timeout=12)
         assert result.returncode==0, result.stdout+result.stderr
-        assert 'lines_received=' in result.stdout, 'subscriber diagnostics missing'
+        assert 'bytes_received=' in result.stdout and 'partial_bytes=' in result.stdout, 'subscriber diagnostics missing'
         assert 'events=goingToScreenSaver,outOfScreenSaver,' in result.stdout, 'named subscription missing'
         if mode!='failed':
-            expected_lines = 4 if mode=='overflow' else 1 if mode in ('late','resume') else 3
-            assert result.stdout.count(f'lines_received={expected_lines}\n')==2, 'received count or restart reset incorrect'
+            expected_lines = 4 if mode=='overflow' else 1 if mode in ('late','resume','buffered') else 3
+            assert result.stdout.count(f'lines_received={expected_lines} ')==2, 'received count or restart reset incorrect'
             assert 'power_raw=' in result.stdout, 'raw event diagnostics missing'
         if mode in ('split','overflow'):
             assert 'power_raw=battLevelChanged 72' in result.stdout, 'unknown events hidden'
@@ -70,4 +82,31 @@ while True: time.sleep(1)
         print('power_check subscriber-parent-death=ok',flush=True)
     finally:
         if reader.poll() is None: reader.kill(); reader.wait()
+    state_helper = base / 'lipc-get-prop'
+    state_helper.write_text('''#!/usr/bin/env python3
+import os,sys,time,signal
+assert sys.argv[1:]==['com.lab126.powerd','state']
+mode=os.environ['MOCK_STATE_MODE']
+if mode=='ok': print('active')
+elif mode=='fail': sys.exit(17)
+elif mode=='overflow': print('x'*200)
+elif mode=='empty': pass
+else:
+    signal.signal(signal.SIGTERM,signal.SIG_IGN)
+    if mode=='closed': os.close(1)
+    if mode=='flood':
+        while True: os.write(1,b'x'*512)
+    while True: time.sleep(1)
+''')
+    state_helper.chmod(0o755)
+    for mode in ('ok','fail','overflow','empty','timeout','closed','flood'):
+        started=time.monotonic()
+        result=subprocess.run([binary,str(state_helper),'state-'+mode],
+            env=dict(os.environ,MOCK_STATE_MODE=mode),text=True,capture_output=True,timeout=3)
+        assert result.returncode==0,result.stdout+result.stderr
+        assert 'power_state stage=check' in result.stdout
+        if mode=='ok': assert 'value=active exit=0 timeout=0 truncated=0' in result.stdout
+        if mode in ('timeout','closed','flood'): assert 'timeout=1' in result.stdout
+        assert time.monotonic()-started<2, 'state query blocked shutdown'
+        print(f'power_state_check {mode}=ok',flush=True)
 print('Power monitor checks passed',flush=True)

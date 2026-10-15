@@ -7,7 +7,7 @@
 namespace kindle {
 enum class PowerEvent { None, GoingToSleep, ReadyToSuspend, Waking, ListenerFailed };
 
-// Own one read-only LIPC subscriber. The input loop polls its pipe, independently
+// Own one read-only LIPC subscriber. The input loop polls its terminal, independently
 // of the render worker. A fixed buffer avoids allocations while reading events.
 class PowerMonitor {
  public:
@@ -19,13 +19,16 @@ class PowerMonitor {
   PowerEvent poll();
   void stop();
   static PowerEvent parse(const char* line);
+  // Run only before starting or after joining the render worker. Diagnostic
+  // query, bounded to one second, with no property writes or policy changes.
+  static bool logState(const char* stage, const char* command = "/usr/bin/lipc-get-prop");
 
  private:
   int fd_ = -1;
   pid_t child_ = -1;
   char line_[160]{};
   size_t used_ = 0;
-  unsigned lines_ = 0;
+  unsigned lines_ = 0, bytes_ = 0;
   bool overflow_ = false, failed_ = false;
 };
 }  // namespace kindle

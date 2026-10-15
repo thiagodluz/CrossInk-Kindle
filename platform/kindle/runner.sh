@@ -174,11 +174,12 @@ trap '' HUP
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.1 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.2 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1
 "$CI_ROOT/bin/$ci_binary" --probe || exit 1
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-pause || :
 
 /bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout" &
 CI_WATCHDOG=$!
@@ -212,6 +213,7 @@ if [ "$ci_paused" -eq 0 ]; then
   exit 1
 fi
 sleep 1
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state after-pause || :
 CROSSINK_LAUNCHER_PID=$$
 export CROSSINK_LAUNCHER_PID
 "$CI_ROOT/bin/$ci_binary" "$ci_argument" &
@@ -222,4 +224,5 @@ wait "$CI_CHILD"
 ci_result=$?
 CI_CHILD=
 echo "exit_status=$ci_result"
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-resume || :
 exit "$ci_result"

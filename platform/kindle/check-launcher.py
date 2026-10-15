@@ -43,6 +43,9 @@ int main(int argc,char** argv) {
    FILE* file=fopen(argv[2],"wb"); if(!file) return 1;
    for(;;) { fputc('x',file); fflush(file); usleep(50000); }
  }
+ if(argc==3 && !strcmp(argv[1],"--power-state")) {
+   printf("mock_power_state stage=%s\\n",argv[2]); return 0;
+ }
  if(argc!=2) return 2;
  if(!strcmp(argv[1],"--version")) return 0;
  if(!strcmp(argv[1],"--probe")) return getenv("MOCK_PROBE_FAIL") ? 19 : 0;
@@ -141,6 +144,11 @@ int main(int argc,char** argv) {
                 else:
                     assert "paused pid=" in log and "resumed pid=" in log, "handoff missing"
                     assert (f"paused pid={volume.pid} name=volumd" in log) == (profile=="ui"), "USB ownership mismatch"
+                if profile=="ui" and mode!="probe-fail":
+                    assert "mock_power_state stage=before-pause" in log
+                    assert "mock_power_state stage=after-pause" in log
+                    if mode in ("normal","fail","stale-pid","stale-boot","legacy-pid"):
+                        assert "mock_power_state stage=before-resume" in log
                 if mode in ("power", "power-stuck"):
                     assert "power_handoff=launcher grace_seconds=2" in log, "power exit not acknowledged"
                 print(f"launcher_check {profile}/{mode}=ok",flush=True)

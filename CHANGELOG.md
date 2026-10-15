@@ -1,3 +1,11 @@
+## [Kindle PW1 TXT preview 0.3.2] - 2026-10-14
+
+### Changed
+
+- Route the stock power-event helper through a raw pseudoterminal to allow immediate line-buffered delivery. A new regression test reproduces an unflushed event that stays buffered with a pipe; this does not yet establish the cause on the PW1.
+- Record bounded read-only powerd state snapshots before/after pausing the stock UI and before resuming it on normal exit. State-query failure or timeout cannot block launcher recovery indefinitely. Event diagnostics also include byte and partial-line counts.
+- Recorded the failed 0.3.1 device test: the listener received zero complete lines, and normal exit resumed the Amazon processes. Named subscriptions alone did not resolve the problem. Hardware retest remains required.
+
 ## [Kindle PW1 TXT preview 0.3.1] - 2026-10-14
 
 ### Changed

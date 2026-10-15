@@ -316,7 +316,7 @@ unproven on the device.
 ### Power-event handoff 0.3.x — device validation pending
 
 `KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd <explicit-event-list>`
-subscriber. The native input loop consumes bounded lines from a nonblocking pipe
+subscriber. The native input loop consumes bounded lines from a nonblocking terminal
 and recognizes sleep/suspend/wake events independently of renderer ownership.
 A recognized event asks the launcher for a two-second shutdown deadline, stops
 and joins the render worker (which saves progress), restores the display, and
@@ -357,3 +357,30 @@ received-line count. This addresses a compatibility difference and improves
 observability; it is not proof that the hardware failure is fixed.
 
 Primary reference: https://github.com/koreader/koreader-base/blob/master/input/input-kindle.h
+
+
+### No event lines on 0.3.1 — terminal transport in 0.3.2
+
+The user's `ui(2).log` identifies 0.3.1, both explicit subscriber startups and
+`lines_received=0` at normal shutdown. Thus named subscriptions did not resolve
+the device failure. The log cannot establish whether the stock helper buffered
+its output or the paused framework delayed event publication.
+
+A local reproduction using an unflushed stdout line receives nothing through a
+pipe but delivers promptly through a terminal. The 0.3.2 backend gives the stock
+helper a raw POSIX pseudoterminal so default terminal line buffering can flush
+an event immediately. This is a tested transport fix, not proof of the PW1 root
+cause. It retains nonblocking reads, bounded parsing and owned helper cleanup.
+No controlling terminal is assigned and stderr remains in the session log.
+
+For the next hardware test, the launcher logs read-only powerd `state` before
+pausing stock processes, after pausing them and before resuming on normal exit.
+The native query has a one-second monotonic deadline, bounded output and child
+reaping, and is only run in separate single-threaded processes. These snapshots
+can distinguish a powerd state transition without received event lines from an
+unchanged state. Queries do not write properties or change the stock pause policy.
+The event counters additionally distinguish zero bytes from an incomplete line.
+
+References: KOReader `frontend/device/kindle/powerd.lua:getPowerdState`,
+https://man7.org/linux/man-pages/man3/posix_openpt.3.html and
+https://www.gnu.org/software/libc/manual/html_node/Buffering-Concepts.html.

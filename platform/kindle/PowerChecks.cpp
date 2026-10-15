@@ -22,6 +22,13 @@ int main(int argc, char** argv) {
   using kindle::PowerEvent;
   using kindle::PowerMonitor;
   if (argc != 3) return 2;
+  if (!std::strncmp(argv[2], "state-", 6)) {
+    const bool expected = !std::strcmp(argv[2], "state-ok");
+    check(PowerMonitor::logState("check", argv[1]) == expected, "bounded state query result");
+    int status;
+    check(waitpid(-1, &status, WNOHANG) == -1 && errno == ECHILD, "state helper reaped");
+    return failures ? 1 : 0;
+  }
   check(PowerMonitor::parse("goingToScreenSaver 2") == PowerEvent::GoingToSleep, "power button event");
   check(PowerMonitor::parse("goingToScreenSaver 4\r") == PowerEvent::GoingToSleep, "cover event");
   check(PowerMonitor::parse("goingToScreenSaver 0") == PowerEvent::GoingToSleep, "idle event");

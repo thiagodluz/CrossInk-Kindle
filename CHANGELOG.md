@@ -10,7 +10,7 @@
 ### Validation
 
 - Full host suite and 43 launcher scenarios passed, including intermediary shells, reopen after power exit, stale sessions, inherited helper descriptors and reopen during cleanup. ARM power/session/descriptor tests and identical host/ARM TXT pixels passed under QEMU with the legacy sysroot.
-- The 0.3.5 device log confirms the launcher signal now arrives and power save-and-exit succeeds. The user reported reopening failed and launcher.log was empty. Descriptor retention was reproduced locally; the exact failed PW1 launch is not established. The 0.3.6 device logs confirm power save-and-exit, wake/KUAL reopen and normal Exit; the user confirms selecting the book resumes the saved page. Forced-crash recovery and visual status-bar behavior remain unvalidated. Restart once after updating to clear descriptors retained by pre-update processes; preserve books/progress.
+- The 0.3.5 device log confirms the launcher signal now arrives and power save-and-exit succeeds. The user reported reopening failed and launcher.log was empty. Descriptor retention was reproduced locally; the exact failed PW1 launch is not established. The 0.3.6 device logs confirm power save-and-exit, wake/KUAL reopen and normal Exit; the user confirms selecting the book resumes the saved page. The user also confirms corner-hold exit/reopen, five-minute automatic exit/reopen and correct status-bar/sleep-screen appearance. Forced-crash recovery and the six-minute watchdog remain unvalidated on hardware. Restart once after updating to clear descriptors retained by pre-update processes; preserve books/progress.
 
 ## [Kindle PW1 TXT preview 0.3.5] - 2026-10-15
 

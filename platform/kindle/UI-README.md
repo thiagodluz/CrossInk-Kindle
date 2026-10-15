@@ -50,7 +50,8 @@ registra o leitor real mesmo com um shell intermediário e registra a tentativa
 antes da preparação. Aguarda até cinco segundos se a abertura coincidir com a
 limpeza anterior. Esses caminhos passaram nos testes locais e ARM emulados;
 os logs da 0.3.6 confirmam repouso, reabertura pelo KUAL e saída normal no PW1.
-O usuário também confirmou a retomada da página ao selecionar o livro.
+O usuário também confirmou a retomada da página ao selecionar o livro, o gesto
+do canto, a saída por cinco minutos e a aparência correta da barra/tela de repouso.
 
 1. Instale conforme as instruções acima, mesclando as pastas e preservando
    `crossink/data`.
@@ -91,8 +92,8 @@ por chamadas Pillow com limite de um segundo. Se a ocultação falhar ou o frame
 já estiver pausado, a prévia não abre. Ao sair, a barra é restaurada e `volumd`
 é retomado. Falhas na restauração preservam o registro para nova tentativa pelo
 KUAL. A recuperação pede a tela inicial somente quando `powerd` está ativo;
-em repouso, preserva a tela da Amazon. A aparência dessa transição precisa de
-observação no aparelho.
+em repouso, preserva a tela da Amazon. O usuário confirmou a aparência correta da barra e da tela de repouso
+no teste da 0.3.6.
 
 ## Arquivos e limites atuais
 
@@ -131,6 +132,7 @@ O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relin
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
 validam a lógica. Repouso, reabertura pelo KUAL e saída normal foram registrados
-na 0.3.6 no PW1; a retomada da página foi confirmada pelo usuário. Recuperação
-forçada, gesto/limite nesta versão e aparência da barra/tela de descanso ainda
-precisam de validações separadas.
+na 0.3.6 no PW1; o usuário confirmou a retomada da página, o gesto do canto,
+o encerramento por cinco minutos e a aparência da barra/tela de descanso.
+Recuperação de travamento real e o watchdog de seis minutos ainda precisam
+de validações separadas.

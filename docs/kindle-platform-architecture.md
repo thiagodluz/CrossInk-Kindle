@@ -569,6 +569,9 @@ The subsequent 0.3.6 physical test confirms power/wake/KUAL reopen and normal
 Exit; the user confirms selecting the book resumes its saved page. The three
 logs, hashes, chronology and distinction between log evidence and user
 observation are recorded in [0.3.6 checks](validation/pw1-0.3.6-checks.md#physical-036-result).
-Startup at the file list is expected. Forced-crash recovery and visual bar/sleep
-behavior remain unvalidated. Session/watchdog limits remain five/six minutes
+Startup at the file list is expected. The user subsequently confirmed corner
+exit/reopen, five-minute timeout/reopen and correct bar/sleep appearance in
+the requested test. These are user observations without new logs/photos; they
+do not prove forced-kill recovery or the six-minute watchdog on hardware.
+Session/watchdog limits remain five/six minutes
 and the app still saves and exits for stock sleep.

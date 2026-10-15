@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.4
+# CrossInk PW1 — prévia TXT 0.3.5
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -51,6 +51,29 @@ ser validado no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
+## Reteste da 0.3.5
+
+A 0.3.4 confirmou salvar e sair ao pressionar o botão de repouso. A 0.3.5 corrige
+a comunicação com o lançador e a concorrência entre abertura e recuperação;
+ainda precisa ser testada no PW1. Ao copiar a atualização, mescle as pastas e
+preserve `crossink/data`, onde ficam os livros e o progresso.
+
+1. Abra o TXT e avance uma página. Pressione o botão de repouso uma vez.
+2. Desperte, reabra pelo KUAL e confira a página salva.
+3. Saia com **Sair** e confira a resposta da interface e a barra de status.
+4. Abra novamente e segure o canto superior direito por cinco segundos.
+5. Abra mais uma vez e deixe a sessão terminar pelo limite de cinco minutos.
+6. Copie `ui.log` e `ui.previous.log` após cada teste para preservar os resultados.
+
+O log deve mostrar `launcher_identity ... valid=1`, `launcher_signal=12 sent=1`
+e `power_handoff=launcher grace_seconds=2` no repouso; no gesto, o sinal é 10.
+Confirme visualmente que a tela de descanso fica correta e a barra não invade a
+leitura. Não é necessário provocar um travamento no aparelho.
+
+Uma operação Restaurar durante a preparação pode retornar `session_guard=busy`;
+aguarde alguns segundos e tente novamente. Não apague os arquivos de estado
+manualmente durante uma sessão. Os limites de cinco/seis minutos continuam.
+
 ## Teste do botão liga/desliga — saída validada na 0.3.4
 
 1. Abra o TXT de exemplo e avance até a página 2.
@@ -71,8 +94,8 @@ antes de ocultar a barra; envie `crossink/logs/ui.log` nesse caso.
 O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
 `reason=power` e das linhas `resumed`. Caso o aplicativo não responda ao pedido de
 saída, a proteção prevista é o encerramento forçado pelo lançador após 2 segundos;
-a última página pode não ter sido salva nesse caso. Essa proteção ainda não está
-validada no aparelho: o teste abaixo rejeitou o sinal destinado ao lançador.
+a última página pode não ter sido salva nesse caso. Essa proteção foi corrigida no código da 0.3.5 e ainda precisa de reteste no
+aparelho; o teste abaixo documenta a falha da 0.3.4.
 O auxiliar de eventos é encerrado e aguardado
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
 A 0.3.3 abriu normalmente, mas o log recebeu zero bytes de eventos e mostrou
@@ -98,11 +121,11 @@ Em 14/10/2026, o usuário confirmou que o repouso funcionou na 0.3.4. O
 `exit_status=0`, estado `screenSaver`, `volumd` retomado e `status_bar=show`
 com sucesso. Também registra `No matching parent launcher for signal=12`:
 a saída normal funcionou, mas a comunicação que ativa a recuperação forçada
-continua pendente. O log não comprova suspensão com o aplicativo aberto,
+foi corrigida na 0.3.5, com validação física pendente. O log não comprova suspensão com o aplicativo aberto,
 despertar/reabrir na página 4 nem ausência visual de sobreposição da barra.
 
-O teste restante é despertar o Kindle, reabrir o mesmo TXT e conferir a página
-4. Observe também se a barra invade a leitura e se volta na saída pelo botão
+A retomada depois do repouso da 0.3.4 ainda não foi documentada. No reteste da
+0.3.5, reabra o mesmo TXT e confira a página salva. Observe também se a barra invade a leitura e se volta na saída pelo botão
 **Sair**. Envie `ui.log` e `ui.previous.log` para documentar esses caminhos.
 
 ## Arquivos e limites atuais

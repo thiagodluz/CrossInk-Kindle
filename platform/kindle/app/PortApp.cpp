@@ -32,6 +32,7 @@
 #include "EmergencyExit.h"
 #include "KindlePower.h"
 #include "KindleSystem.h"
+#include "LauncherSession.h"
 #include "RenderWorker.h"
 
 namespace fui = freeink::ui;
@@ -42,19 +43,7 @@ void powerInterrupt(int) {
   powerRequested = 1;
   interrupted = 1;
 }
-void requestLauncher(int signal) {
-  const char* launcher = std::getenv("CROSSINK_LAUNCHER_PID");
-  if (launcher) {
-    char* end = nullptr;
-    const long pid = std::strtol(launcher, &end, 10);
-    if (end != launcher && !*end && pid > 1 && pid == getppid()) {
-      const bool sent = kill(getppid(), signal) == 0;
-      LOG_INF("UI", "launcher_signal=%d sent=%d", signal, sent);
-      return;
-    }
-  }
-  LOG_ERR("UI", "No matching parent launcher for signal=%d", signal);
-}
+void requestLauncher(int signal) { kindle::notifyLauncher(signal); }
 constexpr int UI_FONT = 0, READING_FONT = 1, TITLE_FONT = 2, SMALL_FONT = 3;
 constexpr size_t MAX_TEXT_BYTES = 256 * 1024, MAX_TEXT_PAGES = 512, MAX_FILES = 200;
 constexpr fui::ActionId OPEN = 1, BACK = 2, PREV = 3, NEXT = 4, EXIT = 5;
@@ -505,8 +494,11 @@ class PortApp {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
-  std::puts("CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)");
+  if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
+  std::puts("CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)");
+  if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
   if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::logPowerState(argv[2]) ? 0 : 1;
   if (argc == 3 && !std::strcmp(argv[1], "--status-bar")) {
@@ -563,6 +555,7 @@ int main(int argc, char** argv) {
   handler.sa_handler = powerInterrupt;
   sigaction(SIGUSR2, &handler, nullptr);
   kindle::PowerMonitor power;
+  if (!preview && !kindle::captureLauncher()) return 1;
   if (!preview && !power.start()) return 1;
   if (!preview && !gpio.begin()) return 1;
   if (!display.initialize(preview)) return 1;
@@ -606,8 +599,11 @@ int main(int argc, char** argv) {
     if (event != kindle::PowerEvent::None) {
       if (event == kindle::PowerEvent::ListenerFailed) inputError = true;
       powerRequested = 1;
+      display.requestStopPublishing();
       LOG_INF("UI", "power_handoff=requested event=%d", static_cast<int>(event));
       requestLauncher(SIGUSR2);
+      // The launcher deadline is armed before waiting for an in-flight ioctl.
+      display.stopPublishing();
       break;
     }
     kindle::Touch touch;
@@ -633,6 +629,7 @@ int main(int argc, char** argv) {
       break;
     }
   }
+  if (powerRequested) display.stopPublishing();
   worker.stop();  // Save progress and join before releasing display/storage/font state.
   const bool yieldForPower = powerRequested && !inputError;
   if (yieldForPower) display.handoffToSystem();

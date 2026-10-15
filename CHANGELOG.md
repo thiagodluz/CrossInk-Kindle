@@ -1,3 +1,18 @@
+## [Kindle PW1 TXT preview 0.3.5] - 2026-10-15
+
+### Fixed
+
+- Serialize launcher setup, cleanup and KUAL recovery with a permanent kernel flock, released automatically on process death. Recovery cannot remove partially initialized records; delayed cleanup checks the session token before touching a replacement. Failed journal writes abort before pausing a process or hiding the bar. Cleanup retries transient contention instead of losing restoration.
+- Bind the reader to the launcher's recorded boot/start identity at startup and verify it again before signaling. An intermediary parent or missing PID environment variable no longer invalidates a verified session. Log the environment PID, libc/kernel parent PIDs, owner and child identity for the PW1 retest; never signal a replacement session.
+- Close the display publication gate as soon as a power event arrives, arm launcher recovery, then drain an in-flight publication and join the worker. Queued frames cannot repaint the stock screen during shutdown. An ioctl already executing still needs to complete or be handled by the launcher deadline.
+- Request a bounded Home redraw after failed/forced exits only when powerd is active. Sleeping devices retain their stock screen; unknown state or failed redraw retains recovery records for retry. UI recovery signals a pixel handoff rather than restoring an opening snapshot.
+- Extend the static NSS symbol guard to reject `__nss_lookup_function` as well.
+
+### Added
+
+- Production app-to-launcher signal checks, intermediary/stale-identity checks, controlled setup/recovery races, failed journal writes, cleanup contention and kernel-lock owner death; blocked-ioctl/queued-frame tests; state-aware redraw failure/deadline checks.
+- The five-minute session and six-minute watchdog remain. These changes require a new PW1 test; the successful 0.3.4 physical sleep test remains separate evidence. In-memory suspend/resume and EPUB are not implemented.
+
 ## [Kindle PW1 TXT preview 0.3.4] - 2026-10-14
 
 ### Changed

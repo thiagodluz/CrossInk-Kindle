@@ -7,9 +7,20 @@ CI_PROC=${CROSSINK_PROC_ROOT:-/proc}
 CI_IDENTITY_PROC=${CROSSINK_IDENTITY_PROC_ROOT:-/proc}
 CI_LOCK="$CI_ROOT/state/launch.lock"
 CI_CHILD=
+CI_CHILD_START=
 CI_WATCHDOG=
 CI_SESSION=
 CI_EXIT_SIGNAL=TERM
+CI_GUARD="$CI_ROOT/bin/crossink-ui"
+[ -x "$CI_GUARD" ] || CI_GUARD="$CI_ROOT/bin/crossink-pw1"
+# Descriptor 9 is held only during setup or recovery, never during app wait.
+# All entry points use the same permanent kernel-lock inode.
+if [ "${1:-}" = --guarded ]; then
+  "$CI_GUARD" --session-check || exit 1
+  shift
+elif [ "${1:-}" != --watchdog ]; then
+  exec "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" "$@"
+fi
 
 # boot_id and starttime are present on the PW1's 2.6.31 kernel. Never trust a
 # persisted PID alone: both a reboot and PID reuse can give it another owner.
@@ -87,7 +98,7 @@ restore_bar() {
   read -r ci_bar < "$CI_LOCK/status-bar"
   [ "$ci_bar" = hidden ] || return 0
   if "$CI_ROOT/bin/crossink-ui" --status-bar show; then
-    echo restored > "$CI_LOCK/status-bar"
+    echo restored > "$CI_LOCK/status-bar" || return 1
     return 0
   fi
   echo 'ERROR status bar restoration failed; keep lock for KUAL Restore'
@@ -110,41 +121,76 @@ terminate_child() {
   fi
 }
 
-recover() {
-  # Old-boot PIDs must never receive signals, even when their names match.
-  lock_same_boot || return 0
-  terminate_child
+session_matches() {
+  [ -f "$CI_LOCK/owner" ] && [ -f "$CI_LOCK/identity" ] || return 1
+  read -r ci_owner < "$CI_LOCK/owner" || return 1
+  read -r ci_boot ci_started < "$CI_LOCK/identity" || return 1
+  [ "$ci_owner:$ci_boot:$ci_started" = "$1" ]
+}
+release_session() {
   resume_ui
   restore_bar || return 1
-  # Request home repaint if the stock helper is available. No settings changed.
-  if [ -x /usr/bin/lipc-set-prop ]; then
-    /usr/bin/lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null
+  if [ "$1" = repaint ]; then
+    "$CI_GUARD" --recover-display || return 1
   fi
+  rm -rf "$CI_LOCK"
+}
+recover() {
+  [ -d "$CI_LOCK" ] || return 0
+  if [ -f "$CI_LOCK/profile" ]; then
+    read -r ci_profile < "$CI_LOCK/profile"
+    case "$ci_profile" in ui|diagnostic) exec >> "$CI_ROOT/logs/$ci_profile.log" 2>&1 ;; esac
+  fi
+  if ! lock_same_boot; then
+    # An old live package must not be disturbed without a recorded identity.
+    if legacy_owner_alive; then return 1; fi
+    rm -rf "$CI_LOCK"
+    return 0
+  fi
+  if owner_alive; then
+    # Setup has released the operation lock, so the owner can only be waiting
+    # or seeking cleanup. Revoke it before restoring resources. Its later
+    # cleanup must match the old token and cannot touch a replacement session.
+    kill -TERM "$ci_owner" 2>/dev/null || return 1
+    kill -CONT "$ci_owner" 2>/dev/null || :
+  fi
+  # A UI recovery yields pixels even if powerd is already asleep. The bounded
+  # redraw below chooses Home only while active; never restore a stale snapshot
+  # over the stock sleep screen merely because recovery used SIGTERM.
+  [ "${ci_profile:-}" != ui ] || CI_EXIT_SIGNAL=USR2
+  terminate_child
+  release_session repaint
 }
 
 if [ "${1:-}" = --watchdog ]; then
-  # This independent process survives a killed runner or a blocked display ioctl.
   ci_timeout=${3:-120}
   case "$ci_timeout" in 120|360) ;; *) exit 1 ;; esac
   sleep "$ci_timeout"
-  if [ -f "$CI_LOCK/owner" ]; then
-    read -r ci_owner < "$CI_LOCK/owner"
-    read -r ci_boot ci_started < "$CI_LOCK/identity"
-    if [ "$ci_owner:$ci_boot:$ci_started" = "${2:-}" ]; then
-      echo 'ERROR watchdog expired; restoring Kindle UI'
-      recover
-    fi
+  # Reacquire before checking the token; an expired watchdog cannot affect a
+  # new session even if the old launch.lock path has been reused.
+  exec "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" --recover-token "${2:-}"
+fi
+if [ "${1:-}" = --recover-token ]; then
+  if session_matches "${2:-}"; then
+    echo 'ERROR watchdog expired; restoring Kindle UI'
+    recover
+    exit $?
   fi
   exit 0
 fi
-
 if [ "${1:-}" = --recover ]; then
-  if recover; then
-    if ! owner_alive && ! legacy_owner_alive; then rm -rf "$CI_LOCK"; fi
-  else
-    exit 1
-  fi
-  exit 0
+  recover
+  exit $?
+fi
+if [ "${1:-}" = --cleanup ]; then
+  session_matches "${2:-}" || exit 0
+  CI_EXIT_SIGNAL=${3:-TERM}
+  case "$CI_EXIT_SIGNAL" in TERM|USR2) ;; *) exit 1 ;; esac
+  ci_repaint=no
+  if [ "${4:-}" = active ]; then terminate_child; ci_repaint=repaint; fi
+  case "${5:-1}" in 0) ;; *) ci_repaint=repaint ;; esac
+  release_session "$ci_repaint"
+  exit $?
 fi
 
 ci_binary=crossink-pw1
@@ -168,18 +214,33 @@ if ! mkdir "$CI_LOCK" 2>/dev/null; then
 fi
 ci_started=$(process_start "$$") || exit 1
 CI_SESSION="$$:$CI_BOOT:$ci_started"
-echo "$CI_BOOT $ci_started" > "$CI_LOCK/identity"
-echo "$$" > "$CI_LOCK/owner"
-: > "$CI_LOCK/paused"
+echo "$CI_BOOT $ci_started" > "$CI_LOCK/identity" || exit 1
+echo "$$" > "$CI_LOCK/owner" || exit 1
+: > "$CI_LOCK/paused" || exit 1
+echo "$ci_log" > "$CI_LOCK/profile" || exit 1
 cleanup() {
+  ci_result=$?
   trap - 0
   trap '' INT TERM USR1 USR2
-  [ -n "$CI_CHILD" ] && terminate_child
-  resume_ui
-  ci_bar_ok=1
-  restore_bar || ci_bar_ok=0
   [ -n "$CI_WATCHDOG" ] && kill -TERM "$CI_WATCHDOG" 2>/dev/null
-  if [ "$ci_bar_ok" -eq 1 ] && owner_alive; then rm -rf "$CI_LOCK"; fi
+  ci_child_state=done
+  [ -z "$CI_CHILD" ] || ci_child_state=active
+  ci_saved_pid=
+  ci_saved_start=
+  [ ! -f "$CI_LOCK/child" ] || read -r ci_saved_pid ci_saved_start < "$CI_LOCK/child"
+  if [ "$ci_child_state" = active ] && { [ -z "$CI_CHILD_START" ] ||
+       [ "$ci_saved_pid:$ci_saved_start" != "$CI_CHILD:$CI_CHILD_START" ]; }; then
+    # The direct child has not been reaped and its PID cannot be reused. Cover
+    # failure/interruption while writing its identity before releasing setup.
+    kill -TERM "$CI_CHILD" 2>/dev/null || :
+    sleep 2
+    kill -KILL "$CI_CHILD" 2>/dev/null || :
+    wait "$CI_CHILD" 2>/dev/null || :
+  fi
+  # Cleanup retries transient contention; its token prevents a delayed old
+  # exit from touching a replacement session restored in the meantime.
+  exec 9>&-
+  "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" --cleanup "$CI_SESSION" "$CI_EXIT_SIGNAL" "$ci_child_state" "$ci_result"
 }
 trap cleanup 0
 trap 'exit 143' TERM
@@ -192,14 +253,14 @@ trap '' HUP
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.4 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.5 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1
 "$CI_ROOT/bin/$ci_binary" --probe || exit 1
 [ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-prepare || :
 
-/bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout" &
+(exec 9>&-; exec /bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout") &
 CI_WATCHDOG=$!
 
 # The TXT UI keeps CVM/WM running; the diagnostic pauses them. Pause volumd
@@ -228,7 +289,7 @@ for ci_file in "$CI_PROC"/[0-9]*/status; do
   esac
   case "$ci_state" in T|t|'') continue ;; esac
   ci_started=$(process_start "$ci_pid") || continue
-  echo "$ci_pid $ci_name $ci_started" >> "$CI_LOCK/paused"
+  echo "$ci_pid $ci_name $ci_started" >> "$CI_LOCK/paused" || exit 1
   if kill -STOP "$ci_pid" 2>/dev/null; then
     # In UI mode volumd is also paused, preventing simultaneous USB ownership.
     case "$ci_name" in cvm|awesome) ci_paused=$((ci_paused + 1)) ;; esac
@@ -245,7 +306,7 @@ if [ "$ci_log" = ui ]; then
   fi
   # Persist before issuing hide: recovery must cover interruption after the
   # stock UI changes but before the command returns.
-  echo hidden > "$CI_LOCK/status-bar"
+  echo hidden > "$CI_LOCK/status-bar" || exit 1
   "$CI_ROOT/bin/$ci_binary" --status-bar hide || exit 1
   echo 'framework_policy=cooperative status_bar=soft-hidden'
 elif [ "$ci_paused" -eq 0 ]; then
@@ -256,10 +317,14 @@ if [ "$ci_log" = ui ]; then sleep 3; else sleep 1; fi
 [ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state after-prepare || :
 CROSSINK_LAUNCHER_PID=$$
 export CROSSINK_LAUNCHER_PID
-"$CI_ROOT/bin/$ci_binary" "$ci_argument" &
+(exec 9>&-; exec "$CI_ROOT/bin/$ci_binary" "$ci_argument") &
 CI_CHILD=$!
-ci_started=$(process_start "$CI_CHILD")
-echo "$CI_CHILD $ci_started" > "$CI_LOCK/child"
+ci_started=$(process_start "$CI_CHILD") || exit 1
+CI_CHILD_START=$ci_started
+echo "$CI_CHILD $ci_started" > "$CI_LOCK/child" || exit 1
+echo "launcher_identity shell=$$ child=$CI_CHILD child_start=$ci_started"
+read_process "$CI_CHILD" && echo "launcher_child name=$ci_name state=$ci_state"
+exec 9>&-
 wait "$CI_CHILD"
 ci_result=$?
 CI_CHILD=

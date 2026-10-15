@@ -9,6 +9,8 @@
 
 #include "DiagnosticStrings.h"
 #include "KindleBackends.h"
+#include "KindleSystem.h"
+#include "LauncherSession.h"
 
 namespace {
 volatile sig_atomic_t interrupted = 0;
@@ -179,6 +181,9 @@ int run(bool probe) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
+  if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
+  if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
   setvbuf(stderr, nullptr, _IOLBF, 0);
   std::puts("CrossInk PW1 hardware validation 0.1.0 (not the EPUB reader)");

@@ -146,4 +146,34 @@ if mode=='timeout':
         assert time.monotonic()-started<2,'status bar helper blocked recovery'
         if mode=='timeout': assert 'timeout=1' in result.stdout
         print(f'framework_bar_check {action}/{mode}=ok',flush=True)
+    recovery_query = base / 'recovery-query'
+    recovery_query.write_text('''#!/usr/bin/env python3
+import os,sys,time
+assert sys.argv[1:]==['com.lab126.powerd','state']
+mode=os.environ['MOCK_RECOVERY_MODE']
+if mode=='query-fail': sys.exit(17)
+if mode=='query-timeout': time.sleep(10)
+print('screenSaver' if mode=='sleep' else 'unknown-state' if mode=='invalid' else 'active')
+''')
+    recovery_home = base / 'recovery-home'
+    recovery_home.write_text('''#!/usr/bin/env python3
+import os,sys,time
+assert sys.argv[1:]==['com.lab126.appmgrd','start','app://com.lab126.booklet.home']
+open(os.environ['MOCK_RECOVERY_CALLED'],'w').write('called')
+mode=os.environ['MOCK_RECOVERY_MODE']
+if mode=='home-fail': sys.exit(17)
+if mode=='home-timeout': time.sleep(10)
+''')
+    recovery_query.chmod(0o755)
+    recovery_home.chmod(0o755)
+    for mode in ('active','sleep','query-fail','query-timeout','invalid','home-fail','home-timeout'):
+        called = base / ('recovery-called-'+mode)
+        started=time.monotonic()
+        result=subprocess.run([*launch,str(base),'recovery-'+mode],
+            env=dict(os.environ,MOCK_RECOVERY_MODE=mode,MOCK_RECOVERY_CALLED=str(called)),
+            text=True,capture_output=True,timeout=4)
+        assert result.returncode==0,result.stdout+result.stderr
+        assert called.exists() == (mode in ('active','home-fail','home-timeout')), 'home requested during sleep or failed query'
+        assert time.monotonic()-started<2.5, 'display recovery blocked cleanup'
+        print(f'display_recovery_check {mode}=ok',flush=True)
 print('Power monitor checks passed',flush=True)

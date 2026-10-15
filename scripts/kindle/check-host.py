@@ -15,18 +15,22 @@ def main():
     output = ROOT / 'build/kindle-pw1/host-checks'
     output.mkdir(parents=True, exist_ok=True)
     backend = output / 'backend-checks'
-    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
         'platform/kindle/KindleBackends.cpp', 'platform/kindle/BackendChecks.cpp', '-o', backend)
     run(backend)
     display = output / 'display-checks'
-    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
         'platform/kindle/KindleBackends.cpp', 'platform/kindle/DisplayChecks.cpp',
         '-Wl,--wrap=open,--wrap=close,--wrap=mmap,--wrap=munmap,--wrap=ioctl', '-o', display)
     run(display)
     power = output / 'power-checks'
-    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
         'platform/kindle/KindlePower.cpp', 'platform/kindle/KindleSystem.cpp', 'platform/kindle/PowerChecks.cpp', '-o', power)
     run('python3', 'platform/kindle/check-power.py', '--binary', power)
+    session = output / 'session-checks'
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
+        'platform/kindle/LauncherSession.cpp', 'platform/kindle/SessionChecks.cpp', '-o', session)
+    run('python3', 'platform/kindle/check-session.py', '--binary', session)
     run('python3', 'platform/kindle/check-launcher.py')
     ui = build(Path(), output / 'ui', ROOT / 'platform/kindle/app/PortApp.cpp', True)
     run('python3', 'platform/kindle/check-ui.py', '--binary', ui)

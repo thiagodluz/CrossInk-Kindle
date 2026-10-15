@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 namespace kindle {
 namespace {
@@ -108,6 +109,27 @@ bool setStatusBarVisible(bool visible, const char* command) {
   const auto result = run(command, arguments);
   std::printf("status_bar=%s exit=%d timeout=%d truncated=%d\n", visible ? "show" : "hide", result.exitCode,
               result.timedOut, result.overflow);
+  return result.ok();
+}
+bool recoverDisplay(const char* query, const char* command) {
+  const char* stateArguments[] = {query, "com.lab126.powerd", "state", nullptr};
+  const auto state = run(query, stateArguments);
+  if (!state.ok() || !*state.value) {
+    std::puts("display_recovery=failed reason=unknown-power-state");
+    return false;
+  }
+  if (!std::strcmp(state.value, "screenSaver") || !std::strcmp(state.value, "suspended")) {
+    std::printf("display_recovery=skipped power_state=%s\n", state.value);
+    return true;
+  }
+  if (std::strcmp(state.value, "active")) {
+    std::printf("display_recovery=failed power_state=%s\n", state.value);
+    return false;
+  }
+  const char* arguments[] = {command, "com.lab126.appmgrd", "start", "app://com.lab126.booklet.home", nullptr};
+  const auto result = run(command, arguments);
+  std::printf("display_recovery=home exit=%d timeout=%d truncated=%d\n", result.exitCode, result.timedOut,
+              result.overflow);
   return result.ok();
 }
 }  // namespace kindle

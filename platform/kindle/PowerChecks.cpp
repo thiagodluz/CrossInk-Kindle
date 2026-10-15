@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "KindlePower.h"
 #include "KindleSystem.h"
@@ -23,6 +24,15 @@ int main(int argc, char** argv) {
   using kindle::PowerEvent;
   using kindle::PowerMonitor;
   if (argc != 3) return 2;
+  if (!std::strncmp(argv[2], "recovery-", 9)) {
+    const std::string base = argv[1];
+    const bool expected = !std::strcmp(argv[2], "recovery-active") || !std::strcmp(argv[2], "recovery-sleep");
+    check(kindle::recoverDisplay((base + "/recovery-query").c_str(), (base + "/recovery-home").c_str()) == expected,
+          "state-aware bounded display recovery");
+    int status;
+    check(waitpid(-1, &status, WNOHANG) == -1 && errno == ECHILD, "recovery helpers reaped");
+    return failures ? 1 : 0;
+  }
   if (!std::strncmp(argv[2], "bar-", 4)) {
     const bool visible = std::strstr(argv[2], "show") != nullptr;
     const bool expected = std::strstr(argv[2], "ok") != nullptr;

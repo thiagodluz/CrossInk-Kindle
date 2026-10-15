@@ -1,10 +1,13 @@
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <thread>
 
 #include "KindleBackends.h"
 
@@ -13,6 +16,7 @@ constexpr int framebufferFd = 42;
 constexpr size_t width = 758, height = 1024, stride = 768;
 std::array<uint8_t, stride * height> framebuffer;
 unsigned refreshes = 0, failures = 0;
+std::atomic<bool> holdUpdate{false}, updateEntered{false}, releaseUpdate{false};
 void check(bool passed, const char* what) {
   if (!passed) {
     ++failures;
@@ -51,6 +55,10 @@ extern "C" int __wrap_ioctl(int fd, unsigned long request, ...) {
     info.bits_per_pixel = 8;
     info.rotate = 3;
   } else if (request == 0x4048462e) {
+    if (holdUpdate.load()) {
+      updateEntered = true;
+      while (!releaseUpdate.load()) usleep(1000);
+    }
     ++refreshes;
   } else if (request != 0x4004462f) {
     return -1;
@@ -86,6 +94,37 @@ int main() {
   check(refreshes == 2, "normal exit restores exactly once");
   check(std::all_of(framebuffer.begin(), framebuffer.end(), [](uint8_t pixel) { return pixel == 30; }),
         "normal exit retains prior restore behavior");
+
+  framebuffer.fill(40);
+  refreshes = 0;
+  {
+    kindle::Display display;
+    check(display.open(true), "open concurrent power-exit framebuffer");
+    std::fill_n(display.pixels(), width * height, 100);
+    holdUpdate = true;
+    std::thread writer([&] { check(display.present(true), "in-flight publication completes"); });
+    for (unsigned i = 0; i < 3000 && !updateEntered.load(); ++i) usleep(1000);
+    check(updateEntered.load(), "writer reached blocked framebuffer ioctl");
+    std::atomic<bool> stopping{false}, stopped{false};
+    std::thread stopper([&] {
+      stopping = true;
+      display.stopPublishing();
+      stopped = true;
+    });
+    while (!stopping.load()) usleep(1000);
+    usleep(20000);
+    check(!stopped.load(), "power transition drains an in-flight publication");
+    releaseUpdate = true;
+    writer.join();
+    stopper.join();
+    framebuffer.fill(170);  // Stock paints after the publication drain.
+    check(display.present(true), "queued frame cancelled without an application error");
+    check(refreshes == 1, "no queued publication after the power gate closes");
+    display.handoffToSystem();
+    check(display.restore(), "post-join handoff remains write-free");
+  }
+  check(std::all_of(framebuffer.begin(), framebuffer.end(), [](uint8_t pixel) { return pixel == 170; }),
+        "stock frame survives cancellation, join and destruction");
   std::printf("display_checks failures=%u\n", failures);
   return failures ? 1 : 0;
 }

@@ -479,3 +479,52 @@ must remain tracked as an unresolved recovery defect. This run does not validate
 wake/reopen at page 4, forced cleanup of a blocked reader, absence of visual bar
 overlays, or restoration after a separate normal Exit action. Earlier 0.2.1
 progress/normal-exit validation remains separate evidence.
+
+
+### 0.3.5 lifecycle recovery corrections — hardware retest pending
+
+`LauncherSession` acquires a kernel flock on the permanent
+`state/operation.lock` inode and execs the shell with descriptor 9. The runner
+verifies that descriptor before entering a guarded phase. Setup, cleanup,
+Restore and token-qualified watchdog recovery share that lock. The app and
+watchdog close descriptor 9 before exec, and the runner releases it before
+waiting for the reader. Kernel owner death releases the lock. Never unlink
+operation.lock: doing so could create two independently locked inodes.
+
+A Restore during setup refuses with status 75. Cleanup instead retries brief
+contention for up to ten seconds; a duplicate launch cannot silently consume
+cleanup. Recorded boot/start session tokens prevent an old cleanup or watchdog
+from acting on a replacement session. Journal writes are checked before STOP,
+bar hide and reader handoff. Incomplete child-record publication also has a
+direct-child termination fallback before the runner releases setup.
+
+The reader captures the recorded launcher owner at startup and validates boot
+and process start again before signaling. It does not depend on direct
+parenthood or a PID environment variable, and it cannot bind later to a new
+owner. The production notifier is exercised through the real runner in the
+host harness, using isolated proc identities where the execution host exposes
+a different PID namespace. Separate native checks exercise an intermediary
+process and stale boot/start records. Device logs include libc/kernel parent
+PIDs, environment PID and the verified owner, without weakening PID-reuse checks.
+
+On a received power event, an atomic publication gate closes before notifying
+the launcher. The independent deadline is armed before draining a publication
+already executing and joining the render worker. The gate prevents pending
+frames from reaching the mapped framebuffer; post-join handoff still suppresses
+snapshot restoration. An ioctl already submitted cannot be cancelled by the
+gate. The concurrent framebuffer test blocks that ioctl, verifies the drain,
+then paints stock pixels and verifies that pending publication/destruction do
+not overwrite them. This is controlled evidence, not a PW1 rendering claim.
+
+Failed/forced cleanup resumes owned processes, restores the status bar and uses
+bounded stock commands to request Home only when powerd reports active. Sleep
+states skip Home; unknown state or command failure retains records for retry.
+UI Restore sends the handoff signal so an already-sleeping device does not get
+an opening snapshot repainted by SIGTERM cleanup. The 0.3.4 Pillow show-during-
+sleep visual question still needs device observation.
+
+The five-minute session bound and six-minute watchdog remain. Revalidate power,
+wake/reopen, normal Exit, corner hold and the session timeout on the PW1;
+0.2.1 exit validation and 0.3.4 power validation do not prove these new paths.
+
+Automated validation and its limits: [0.3.5 checks](validation/pw1-0.3.5-checks.md).

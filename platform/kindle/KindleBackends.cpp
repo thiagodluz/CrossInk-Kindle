@@ -183,6 +183,7 @@ int Input::poll(Touch& touch, int timeoutMs) {
 
 Display::~Display() {
   if (modified_) restore();
+  pthread_mutex_destroy(&publication_);
   if (mapping_) munmap(mapping_, layout_.memory);
   std::free(pixels_);
   std::free(original_);
@@ -253,10 +254,22 @@ bool Display::update(bool full) {
 bool Display::present(bool full) {
   if (handedOff_) return false;
   if (!mapping_ || !pixels_ || !original_) return false;
+  pthread_mutex_lock(&publication_);
+  if (!publishing_.load(std::memory_order_acquire)) {
+    pthread_mutex_unlock(&publication_);
+    return true;  // A cancelled power-exit frame is not a rendering failure.
+  }
   modified_ = true;
   for (uint32_t y = 0; y < layout_.height; ++y)
     std::memcpy(mapping_ + layout_.row(y), pixels_ + static_cast<size_t>(y) * layout_.width, layout_.width);
-  return update(full);
+  const bool ok = update(full);
+  pthread_mutex_unlock(&publication_);
+  return ok;
+}
+void Display::stopPublishing() {
+  requestStopPublishing();
+  pthread_mutex_lock(&publication_);
+  pthread_mutex_unlock(&publication_);
 }
 bool Display::restore() {
   if (handedOff_) return true;

@@ -565,5 +565,10 @@ same permanent guard. KUAL/runner log entry now precedes native preflight.
 Restart once after installing over 0.3.5 to discard descriptors retained by old
 processes; do not delete the permanent lock inode or reading data. Host and ARM
 checks are documented in [0.3.6 checks](validation/pw1-0.3.6-checks.md).
-Power/wake/reopen still requires a 0.3.6 physical test. Session/watchdog limits
-remain five/six minutes and the app still saves and exits for stock sleep.
+The subsequent 0.3.6 physical test confirms power/wake/KUAL reopen and normal
+Exit; the user confirms selecting the book resumes its saved page. The three
+logs, hashes, chronology and distinction between log evidence and user
+observation are recorded in [0.3.6 checks](validation/pw1-0.3.6-checks.md#physical-036-result).
+Startup at the file list is expected. Forced-crash recovery and visual bar/sleep
+behavior remain unvalidated. Session/watchdog limits remain five/six minutes
+and the app still saves and exits for stock sleep.

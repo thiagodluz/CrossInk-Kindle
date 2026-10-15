@@ -1,0 +1,8 @@
+Thu Oct 15 07:57:04 GMT-3:0100 2026
+kual_launch mode=--ui package=0.3.6
+Thu Oct 15 07:57:04 GMT-3:0100 2026
+launcher_attempt mode=--ui shell=3106 package=0.3.6
+Thu Oct 15 07:57:46 GMT-3:0100 2026
+kual_launch mode=--ui package=0.3.6
+Thu Oct 15 07:57:46 GMT-3:0100 2026
+launcher_attempt mode=--ui shell=3212 package=0.3.6

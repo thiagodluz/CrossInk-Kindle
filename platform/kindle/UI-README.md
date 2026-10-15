@@ -49,7 +49,8 @@ A 0.3.6 libera a trava explicitamente, impede que auxiliares herdem descritores,
 registra o leitor real mesmo com um shell intermediário e registra a tentativa
 antes da preparação. Aguarda até cinco segundos se a abertura coincidir com a
 limpeza anterior. Esses caminhos passaram nos testes locais e ARM emulados;
-a confirmação no PW1 está pendente.
+os logs da 0.3.6 confirmam repouso, reabertura pelo KUAL e saída normal no PW1.
+O usuário também confirmou a retomada da página ao selecionar o livro.
 
 1. Instale conforme as instruções acima, mesclando as pastas e preservando
    `crossink/data`.
@@ -75,8 +76,10 @@ Uma tentativa de Restaurar durante a preparação pode retornar
 O CrossInk salva, encerra e libera tela/toque para o sistema da Amazon.
 Ele **não permanece aberto em memória durante a suspensão** nesta etapa.
 Depois de acordar, é preciso abri-lo novamente pelo KUAL. A saída por evento de
-energia foi confirmada na 0.3.4 e na 0.3.5; a reabertura com a 0.3.6 ainda precisa
-de teste físico. A recuperação forçada de um travamento real também está pendente.
+energia foi confirmada na 0.3.4, 0.3.5 e 0.3.6. Na 0.3.6, os logs confirmam
+a reabertura pelo KUAL; o usuário confirmou que selecionar o livro retoma a
+página salva. Abrir na lista de arquivos é o comportamento atual da prévia.
+A recuperação forçada de um travamento real continua pendente.
 
 O monitor escuta `powerd` por `/usr/bin/lipc-wait-event`, sem alterar energia ou
 luz frontal. Se o monitor falhar, a sessão termina. Se o comando estiver ausente,
@@ -127,6 +130,7 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica. A saída por botão de repouso foi confirmada na 0.3.4/0.3.5 no PW1;
-despertar/reabrir, recuperação forçada e os demais limites descritos acima
-continuam pendentes.
+validam a lógica. Repouso, reabertura pelo KUAL e saída normal foram registrados
+na 0.3.6 no PW1; a retomada da página foi confirmada pelo usuário. Recuperação
+forçada, gesto/limite nesta versão e aparência da barra/tela de descanso ainda
+precisam de validações separadas.

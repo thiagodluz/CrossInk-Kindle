@@ -1,0 +1,42 @@
+Thu Oct 15 07:57:47 GMT-3:0100 2026
+launcher=CrossInk PW1 package 0.3.6 mode=ui
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+power_listener=started pid=3223 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+power_listener=stopped reaped=1 lines_received=0 bytes_received=0 partial_bytes=0
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+power_state stage=before-prepare value=active exit=0 timeout=0 truncated=0
+paused pid=1129 name=volumd
+framework=running pid=1470 name=awesome
+framework=running pid=2438 name=cvm
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+status_bar=hide exit=0 timeout=0 truncated=0
+framework_policy=cooperative status_bar=soft-hidden
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+power_state stage=after-prepare value=active exit=0 timeout=0 truncated=0
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+launcher_identity env=3212 ppid=3241 proc_ppid=3241 owner=3212 start=17550 valid=1
+launcher_identity shell=3212 child=3241 child_start=17981
+launcher_child name=sh state=S
+reader_identity pid=3242 start=17981 parent=3241 owner=3212 registered=1
+power_listener=started pid=3245 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+[INF] [STO] directory=/books entries=1
+refresh marker=1 mode=full result=ok
+[INF] [UI] frame=1 view=files page=1/1
+[DBG] [UI] touch=down logical=646,955
+[DBG] [UI] touch=up logical=646,955
+[INF] [UI] action=5 value=0
+refresh marker=2 mode=full result=ok
+power_listener=stopped reaped=1 lines_received=0 bytes_received=0 partial_bytes=0
+[INF] [UI] exit joined=yes display_released=1 interrupted=0 reason=normal
+exit_status=0
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+power_state stage=before-release value=active exit=0 timeout=0 truncated=0
+resumed pid=1129 name=volumd
+CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)
+status_bar=show exit=0 timeout=0 truncated=0
+session_cleanup=complete

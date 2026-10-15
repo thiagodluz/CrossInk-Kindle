@@ -15,7 +15,7 @@ def run(*args):
     return subprocess.check_output([str(a) for a in args], cwd=ROOT, text=True)
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
-def audit(binary, tools):
+def audit(binary, tools, check_nss=True):
     readelf = tools / (TRIPLE + '-readelf')
     sections = {flag: run(readelf, flag, binary) for flag in ('-h','-A','-l','-d','-n')}
     if not all(value in sections['-h'] for value in ('ELF32','ARM','little endian','soft-float ABI')):
@@ -25,15 +25,18 @@ def audit(binary, tools):
     match = re.search(r'OS: Linux, ABI: (\d+\.\d+\.\d+)', sections['-n'])
     if not match or tuple(map(int, match[1].split('.'))) > (2,6,31):
         raise RuntimeError('Executable does not match PW1 minimum Linux ABI')
-    # ELF NEEDED is not enough: old static glibc can dlopen NSS modules for
-    # account/group lookup (grantpt did this in 0.3.2 and crashed on the PW1).
-    symbols = {line.split()[-1] for line in run(tools/(TRIPLE+'-nm'),binary).splitlines() if line.split()}
-    forbidden = {'grantpt','__grantpt','getgrnam','getgrnam_r','__getgrnam_r',
-                 'getpwnam','getpwuid','getaddrinfo','__nss_database_lookup'}
-    unexpected = sorted(symbols & forbidden)
-    if unexpected:
-        raise RuntimeError('Static PW1 binary pulls NSS/account lookup: '+', '.join(unexpected))
-    return '\n'.join(sections.values())+'\nnss_account_lookup=absent\n'
+    if check_nss:
+        # ELF NEEDED is not enough: old static glibc can dlopen NSS modules for
+        # account/group lookup (grantpt did this in 0.3.2 and crashed on the PW1).
+        symbols = {line.split()[-1] for line in run(tools/(TRIPLE+'-nm'),binary).splitlines() if line.split()}
+        if not symbols:
+            raise RuntimeError('NSS audit requires the unstripped UI executable')
+        forbidden = {'grantpt','__grantpt','getgrnam','getgrnam_r','__getgrnam_r',
+                     'getpwnam','getpwuid','getaddrinfo','__nss_database_lookup'}
+        unexpected = sorted(symbols & forbidden)
+        if unexpected:
+            raise RuntimeError('Static PW1 binary pulls NSS/account lookup: '+', '.join(unexpected))
+    return '\n'.join(sections.values())+('\nnss_account_lookup=absent\n' if check_nss else '')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -64,7 +67,9 @@ def main():
         raise RuntimeError('SDK has unrecorded source changes')
     ui_audit = output/'ui-elf-audit.txt'
     ui_audit.write_text(audit(ui, tools))
-    audit(diagnostic, tools)
+    # The diagnostic package has already stripped its executable. Its own ELF
+    # audit is retained; the new symbol guard applies to UI before stripping.
+    audit(diagnostic, tools, check_nss=False)
     run(tools/(TRIPLE+'-strip'),'--strip-unneeded',ui)
     # Keep the build hash for relinking and record the shipped bytes separately.
     receipt['unstripped_binary_sha256'] = receipt['binary_sha256']

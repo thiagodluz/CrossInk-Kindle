@@ -3,7 +3,7 @@
 ### Fixed
 
 - Avoid the legacy glibc `grantpt` account/group lookup while preparing the event terminal. On the PW1, 0.3.2 aborted during preflight with a `__getpagesize` assertion, before pausing the Amazon interface. The Linux devpts owner and permissions are now checked directly without changing them or loading NSS modules.
-- Package auditing now rejects account/NSS lookup symbols in static PW1 binaries: the absence of ELF shared dependencies alone did not prevent this runtime failure.
+- Package auditing now rejects account/NSS lookup symbols in the unstripped static PW1 UI binary: the absence of ELF shared dependencies alone did not prevent this runtime failure.
 
 ### Changed
 

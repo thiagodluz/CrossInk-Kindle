@@ -411,7 +411,7 @@ libnss_files.so.2, libc.so.6 and ld-linux.so.3 before SIGSEGV. This reproduces a
 legacy loading failure, not the exact on-device assertion. The corrected ARM
 monitor passes in that same environment, with none of those shared libraries
 opened. `check-power.py --qemu ... --sysroot ...` now exercises this case, and
-release auditing rejects account/NSS symbols before stripping the executable.
+UI release auditing rejects account/NSS symbols before stripping the executable.
 These checks do not replace a hardware opening/power-button retest.
 
 Primary references:

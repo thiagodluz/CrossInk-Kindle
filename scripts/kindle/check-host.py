@@ -32,7 +32,13 @@ def main():
         'platform/kindle/LauncherSession.cpp', 'platform/kindle/SessionChecks.cpp', '-o', session)
     run('python3', 'platform/kindle/check-session.py', '--binary', session)
     run('python3', 'platform/kindle/check-descriptors.py', '--power-binary', power, '--session-binary', session)
-    run('python3', 'platform/kindle/check-launcher.py', timeout=240)
+    supervisor = output / 'supervisor-checks'
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
+        'platform/kindle/SessionHeartbeat.cpp', 'platform/kindle/SessionSupervisor.cpp',
+        'platform/kindle/LauncherSession.cpp', 'platform/kindle/ProcessDescriptors.cpp',
+        'platform/kindle/SupervisorChecks.cpp', '-o', supervisor)
+    run('python3', 'platform/kindle/check-supervisor.py', '--binary', supervisor)
+    run('python3', 'platform/kindle/check-launcher.py', timeout=300)
     ui = build(Path(), output / 'ui', ROOT / 'platform/kindle/app/PortApp.cpp', True)
     run('python3', 'platform/kindle/check-ui.py', '--binary', ui)
     native = build(Path(), output / 'native', ROOT / 'platform/kindle/NativeChecks.cpp', True)

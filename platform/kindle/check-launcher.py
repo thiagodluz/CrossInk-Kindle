@@ -42,8 +42,19 @@ def main() -> None:
 #include <unistd.h>
 #include <signal.h>
 #include "LauncherSession.h"
+#include "SessionSupervisor.h"
+#include "RenderWorker.h"
+void logPrintf(const char*,const char*,const char*,...) {}
+void render(const kindle::UiJob&,void*) {
+ if(getenv("MOCK_RENDER_STALL")) for(;;) pause();
+}
 int main(int argc,char** argv) {
  setvbuf(stdout,nullptr,_IOLBF,0);
+ if(argc==3 && !strcmp(argv[1],"--supervise-ui")) {
+   kindle::SupervisorLimits limits;
+   if(getenv("MOCK_SHORT_WATCHDOG")) limits={8000,1600,1800,4000};
+   return kindle::superviseSession(argv[2],limits);
+ }
  if(argc==2 && !strcmp(argv[1],"--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
  if(argc==2 && !strcmp(argv[1],"--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
  if(argc>=3 && !strcmp(argv[1],"--session-guard")) return kindle::guardSession(argv[2],argc-3,argv+3);
@@ -82,6 +93,26 @@ int main(int argc,char** argv) {
  if(!strcmp(argv[1],"--diagnostic") || !strcmp(argv[1],"--app")) {
    puts("mock_app=started");
    const char* mode=getenv("MOCK_MODE");
+   if(mode && (!strcmp(mode,"healthy") || !strcmp(mode,"input-stall") || !strcmp(mode,"render-stall") || !strcmp(mode,"whole-stall") || !strcmp(mode,"startup-stall") || !strcmp(mode,"supervisor-death") || !strcmp(mode,"runner-death"))) {
+     signal(SIGTERM,SIG_IGN);signal(SIGUSR2,SIG_IGN);signal(SIGPIPE,SIG_IGN);
+     const char* identities=getenv("CROSSINK_IDENTITY_PROC_ROOT");
+     if(!kindle::captureLauncher(identities) || !kindle::registerReader(identities)) return 19;
+     while(access(getenv("MOCK_REQUEST_READY"),F_OK)) usleep(10000);
+     if(!strcmp(mode,"startup-stall")) for(;;) pause();
+     kindle::SessionHeartbeat input, drawing;
+     if(!input.begin('I') || !drawing.begin('R')) return 19;
+     if(!strcmp(mode,"render-stall")) setenv("MOCK_RENDER_STALL","1",1);
+     kindle::RenderWorker worker(render,nullptr,&drawing);
+     if(!worker.start()) return 19;
+     if(!strcmp(mode,"whole-stall")) raise(SIGSTOP);
+     if(!strcmp(mode,"input-stall")) for(;;) pause();
+     const auto start=kindle::monotonicMilliseconds();
+     while(strcmp(mode,"healthy") || kindle::monotonicMilliseconds()-start<6000) {
+       if(!input.pulse()) return 19;
+       usleep(20000);
+     }
+     worker.stop();return 0;
+   }
    if(mode && (!strcmp(mode,"child-power") || !strcmp(mode,"child-emergency") || !strcmp(mode,"child-power-wrapper"))) {
      signal(SIGTERM,SIG_IGN); signal(SIGUSR2,SIG_IGN);
      const char* identities=getenv("CROSSINK_IDENTITY_PROC_ROOT");
@@ -98,9 +129,9 @@ int main(int argc,char** argv) {
 }
 ''')
         mock = base / "crossink-pw1"
-        subprocess.run(["g++", str(native), str(ROOT/"platform/kindle/LauncherSession.cpp"), "-I"+str(ROOT/"platform/kindle"), "-o", str(mock)], check=True)
+        subprocess.run(["g++", str(native), *[str(ROOT/"platform/kindle"/name) for name in ("LauncherSession.cpp","SessionSupervisor.cpp","SessionHeartbeat.cpp","ProcessDescriptors.cpp","RenderWorker.cpp")], "-pthread", "-I"+str(ROOT/"platform/kindle"), "-o", str(mock)], check=True)
         cases = list(itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck", "child-power", "child-emergency", "setup-race", "pause-journal-fail", "child-power-wrapper", "reopen", "stale-reopen")))
-        cases += [("ui",mode) for mode in ("bar-hide-fail","bar-show-fail","framework-stopped","bar-journal-fail","repaint-fail","helper-descendant","reopen-during-cleanup")]
+        cases += [("ui",mode) for mode in ("bar-hide-fail","bar-show-fail","framework-stopped","bar-journal-fail","repaint-fail","helper-descendant","reopen-during-cleanup","healthy","input-stall","render-stall","whole-stall","startup-stall","supervisor-death","runner-death")]
         for profile, mode in cases:
             app = base / (profile+"-"+mode)
             binary_name = "crossink-ui" if profile=="ui" else "crossink-pw1"
@@ -136,6 +167,8 @@ int main(int argc,char** argv) {
                            CROSSINK_IDENTITY_PROC_ROOT=str(identities),
                            MOCK_REQUEST_READY=str(app/"send-request"),
                            MOCK_MODE="stuck" if mode == "emergency" else "wait" if mode in ("interrupt", "recover", "power") else mode)
+                if mode in ("healthy","input-stall","render-stall","whole-stall","startup-stall","supervisor-death","runner-death"):
+                    env["MOCK_SHORT_WATCHDOG"]="1"
                 if mode=="reopen-during-cleanup":
                     env["MOCK_SHOW_BARRIER"]=str(app/"show-release")
                     env["MOCK_SHOW_READY"]=str(app/"show-ready")
@@ -193,13 +226,13 @@ int main(int argc,char** argv) {
                         assert recovery.returncode==75, "concurrent recovery entered guarded setup"
                         assert (app/"state/launch.lock").is_dir(), "setup records removed"
                     (app/"setup-release").touch()
-                if mode in ("interrupt", "recover", "emergency", "power", "power-stuck", "child-power", "child-emergency", "child-power-wrapper"):
+                if mode in ("interrupt", "recover", "emergency", "power", "power-stuck", "child-power", "child-emergency", "child-power-wrapper","healthy","input-stall","render-stall","whole-stall","startup-stall","supervisor-death","runner-death"):
                     child_file = app / "state/launch.lock/child"
                     wait_for(child_file.exists, "diagnostic not started")
                     pid = int(child_file.read_text().split()[0])
                     (proc / str(pid)).mkdir()
                     (proc / str(pid) / "status").write_text(f"Name:\t{'sh' if mode=='child-power-wrapper' else binary_name}\nState:\tS (fixture)\n")
-                    if mode in ("child-power","child-emergency","child-power-wrapper"):
+                    if mode in ("child-power","child-emergency","child-power-wrapper","healthy","input-stall","render-stall","whole-stall","startup-stall","supervisor-death","runner-death"):
                         wait_for((app/"state/launch.lock/reader").exists,"native reader not registered")
                         reader_pid=int((app/"state/launch.lock/reader").read_text().split()[0])
                         (proc/str(reader_pid)).mkdir(exist_ok=True)
@@ -231,6 +264,12 @@ int main(int argc,char** argv) {
                         runner.send_signal(signal.SIGUSR1)
                     elif mode in ("power", "power-stuck"):
                         runner.send_signal(signal.SIGUSR2)
+                    elif mode in ("healthy","input-stall","render-stall","whole-stall","startup-stall"):
+                        (app/"send-request").touch()
+                    elif mode=="supervisor-death":
+                        runner.kill()
+                    elif mode=="runner-death":
+                        os.kill(int((app/"state/launch.lock/owner").read_text()),signal.SIGKILL)
                     else:
                         subprocess.run(["/bin/sh", str(app / "runner.sh"), "--recover"],
                                        env=env, check=True, capture_output=True, timeout=6)
@@ -245,7 +284,7 @@ int main(int argc,char** argv) {
                 result = runner.wait(timeout=12)
                 if mode in ("child-power","child-emergency","child-power-wrapper"):
                     assert time.monotonic()-request_time<4.5, "app-to-launcher recovery exceeded grace window"
-                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0,"bar-hide-fail":1,"bar-show-fail":0,"framework-stopped":1,"child-power":0,"child-emergency":130,"child-power-wrapper":0,"reopen":0,"stale-reopen":0,"helper-descendant":0,"reopen-during-cleanup":0,"setup-race":0,"pause-journal-fail":1,"bar-journal-fail":1,"repaint-fail":23}[mode]
+                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0,"bar-hide-fail":1,"bar-show-fail":0,"framework-stopped":1,"child-power":0,"child-emergency":130,"child-power-wrapper":0,"reopen":0,"stale-reopen":0,"helper-descendant":0,"reopen-during-cleanup":0,"setup-race":0,"pause-journal-fail":1,"bar-journal-fail":1,"repaint-fail":23,"healthy":0,"input-stall":1,"render-stall":1,"whole-stall":1,"startup-stall":1,"supervisor-death":-9,"runner-death":137}[mode]
                 assert result == expected, (mode, result, expected, (app / "logs" / (profile+".log")).read_text() if (app / "logs" / (profile+".log")).exists() else "no log")
                 resumed_size = heartbeat.stat().st_size
                 wait_for(lambda: heartbeat.stat().st_size > resumed_size, "UI not resumed")
@@ -260,7 +299,7 @@ int main(int argc,char** argv) {
                     assert (app/"state/launch.lock").exists(), "failed repaint lost recovery records"
                     retry_env=dict(env);retry_env.pop("MOCK_REPAINT_FAIL")
                     subprocess.run(["/bin/sh",str(app/"runner.sh"),"--recover"],env=retry_env,check=True,capture_output=True,timeout=6)
-                assert not (app / "state/launch.lock").exists(), "lock leaked"
+                wait_for(lambda: not (app/"state/launch.lock").exists(), "lock leaked")
                 log = (app / "logs" / (profile+".log")).read_text()
                 if mode in ("probe-fail","pause-journal-fail"):
                     assert "paused pid=" not in log, "UI touched after failed probe"
@@ -286,6 +325,12 @@ int main(int argc,char** argv) {
                     assert "launcher_signal=" in log and "sent=1 owner=" in log, "production notifier did not signal launcher"
                 if mode in ("power", "power-stuck", "child-power"):
                     assert "power_handoff=launcher grace_seconds=2" in log, "power exit not acknowledged"
+                if mode in ("input-stall","render-stall","whole-stall","startup-stall"):
+                    watch=(app/"logs/launcher.log").read_text()
+                    assert "supervisor=timeout reason=" in watch,"stalled loop was not detected"
+                    assert "reader_termination pid=" in log,"stalled reader was not recovered"
+                if mode=="healthy":
+                    assert "supervisor=timeout" not in (app/"logs/launcher.log").read_text(),"healthy idle reader timed out"
                 if mode in ("reopen","stale-reopen","helper-descendant"):
                     second_env=dict(env);second_env.pop("MOCK_DESCENDANT",None)
                     if mode=="helper-descendant":

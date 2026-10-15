@@ -1,3 +1,16 @@
+## [Kindle PW1 TXT preview 0.3.7] - 2026-10-15
+
+### Changed
+
+- Allow continuous TXT reading without the five-minute app limit or six-minute UI watchdog. An independent native supervisor watches input/render heartbeats over a nonblocking anonymous pipe; idle reading remains healthy, while a stalled loop triggers session-qualified recovery. The diagnostic keeps its existing timeout.
+- Renew the stock inactivity timer only on real touch input, at most once per 30 seconds, using the bounded `touchScreenSaverTimeout` command. Idle sessions can still sleep, and the power button retains the validated save-and-exit policy; no persistent sleep-prevention flag is set.
+- Cover runner/supervisor death: the runner receives a parent-death signal, and the supervisor restores the recorded session after abnormal runner exit or a bounded cleanup failure. Preserve boot/start/token checks and the explicit lock-release protocol.
+- Update the sample TXT to describe continuous reading. Replacing this sample changes its content hash, so its saved position may reset; other books/progress are preserved when directories are merged.
+
+### Validation
+
+- New controlled tests cover healthy idle sessions, stopped input/render loops, a stopped process, missing startup heartbeats and runner/supervisor death, plus activity-command throttling/failure/deadlines. The physical 0.3.6 evidence remains separate. Version 0.3.7 needs a prolonged PW1 reading and inactivity-sleep retest.
+
 ## [Kindle PW1 TXT preview 0.3.6] - 2026-10-15
 
 ### Fixed

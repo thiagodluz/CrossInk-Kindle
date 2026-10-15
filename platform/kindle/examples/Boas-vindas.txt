@@ -12,7 +12,7 @@ Livros em TXT podem ter parágrafos curtos ou extensos. Nesta prévia, as palavr
 
 Você pode copiar outros arquivos TXT em UTF-8 para a pasta crossink/data/books, na raiz do armazenamento acessível por USB. Também pode criar subpastas para organizar os textos. O navegador mostra as pastas antes dos arquivos e permite entrar nelas e retornar usando o botão Voltar.
 
-Este é um pacote experimental para validar a integração. A sessão encerra automaticamente após cinco minutos. Para copiar novos arquivos, saia da prévia e conecte o Kindle ao computador. Na próxima abertura, você encontrará novamente a opção do CrossInk no menu do KUAL.
+Este é um pacote experimental para validar a integração. A leitura pode continuar sem limite fixo de duração. Ao entrar em repouso, a posição é salva. Para copiar novos arquivos, saia da prévia e conecte o Kindle ao computador. Na próxima abertura, você encontrará novamente a opção do CrossInk no menu do KUAL.
 
 Para avaliar a troca de páginas, observe o número mostrado no cabeçalho antes e depois de tocar em Próxima. Em seguida, toque em Anterior. O texto deve corresponder à página indicada, sem inverter a orientação nem deslocar os controles. Se tocar em Sair, a interface do Kindle deve voltar.
 

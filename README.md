@@ -36,9 +36,14 @@ The PW1 is the only target for this experiment. Other Kindle models are not supp
 | Power button / sleep | 0.3.6 power save/exit and wake/KUAL reopen validated; position retained per user |
 | Front light, battery, in-app suspend/resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.3.6 (power/reopen cycle validated) |
+| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.3.7 (continuous-reading device retest pending) |
 
 The hardware diagnostic and the basic TXT preview (0.2.1) have been tested on the user's PW1: page controls, progress persistence across launches, normal exit, the corner-hold exit gesture and the five-minute session limit worked. Version 0.3.0 adds a power-event handoff that saves and exits when the Kindle begins to sleep; the first 0.3.0 device test did not react to the power button. Version 0.3.1 also failed on the device, receiving zero complete event lines. Version 0.3.2 added terminal transport and state diagnostics but aborted during device preflight. Version 0.3.3 restored device startup, but received zero event bytes and still saw powerd as active before normal exit. Version 0.3.4 keeps CVM/WM running and temporarily hides/restores the status bar, following the legacy PW1 framework-cooperation approach. The 2026-10-14 device test confirmed the power event, page-4 save, clean reader exit and stock screenSaver state. The launcher recovery signal was rejected; forced recovery and wake/reopen remain unvalidated. See the [device evidence](./docs/kindle-platform-architecture.md#034-power-button-device-validation--2026-10-14). Version 0.3.5 fixes session coordination and launcher notification, gates display publication during power exit and adds bounded state-aware recovery. Its physical log confirms the signal and power exit, but the user reports reopening failed. Version 0.3.6 corrects inherited operation-lock descriptors, records the real reader behind the observed shell intermediary and logs opening before native preflight. A descriptor leak was reproduced locally; the exact failed PW1 launch is unknown. The 0.3.6 logs confirm power exit, wake/KUAL reopen and normal Exit; the user confirms selecting the book resumes the saved page, corner hold and the five-minute timeout permit reopening, and the status bar/sleep image behave correctly. See the [0.3.6 evidence](./docs/validation/pw1-0.3.6-checks.md#physical-036-result). The preview remains an experimental proof of concept with no EPUB support.
+
+Version 0.3.7 adds continuous TXT reading with independent input/render
+heartbeat supervision and real-touch updates to the stock inactivity timer.
+The five/six-minute UI limits are removed; physical prolonged-reading and idle
+sleep tests are pending. The diagnostic timeout remains unchanged.
 
 ## Development plan
 
@@ -73,7 +78,7 @@ Existing Kindle projects such as [FBInk](https://github.com/NiLuJe/FBInk), [KORe
 
 ## Installation
 
-Use the [0.3.6 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
+Use the [0.3.7 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
 
 Basic TXT reading, power save-and-exit, wake/KUAL reopen and reading-position retention have been tested on the PW1 with 0.3.6. Forced recovery of a blocked app still requires device validation. It is an application package, not firmware; do not flash ESP32 firmware to a Kindle.
 

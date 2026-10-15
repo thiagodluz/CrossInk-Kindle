@@ -176,4 +176,23 @@ if mode=='home-timeout': time.sleep(10)
         assert called.exists() == (mode in ('active','home-fail','home-timeout')), 'home requested during sleep or failed query'
         assert time.monotonic()-started<2.5, 'display recovery blocked cleanup'
         print(f'display_recovery_check {mode}=ok',flush=True)
+    activity_helper=base/'activity-reset'
+    activity_helper.write_text('''#!/usr/bin/env python3
+import os,sys,time
+assert sys.argv[1:]==['-i','com.lab126.powerd','touchScreenSaverTimeout','1'],sys.argv
+with open(os.environ['MOCK_ACTIVITY_CALLS'],'a') as f:f.write('reset\\n')
+mode=os.environ['MOCK_ACTIVITY_MODE']
+if mode=='fail':sys.exit(17)
+if mode=='timeout':time.sleep(10)
+''')
+    activity_helper.chmod(0o755)
+    for mode in ('ok','fail','timeout'):
+        calls=base/('activity-calls-'+mode)
+        result=subprocess.run([*launch,str(activity_helper),'activity-'+mode],
+            env=dict(os.environ,MOCK_ACTIVITY_MODE=mode,MOCK_ACTIVITY_CALLS=str(calls)),
+            text=True,capture_output=True,timeout=4)
+        assert result.returncode==0,result.stdout+result.stderr
+        assert calls.read_text().splitlines()==['reset','reset'],'activity throttle failed'
+        print('user_activity_check '+mode+'=ok',flush=True)
+
 print('Power monitor checks passed',flush=True)

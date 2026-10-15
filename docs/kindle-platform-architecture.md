@@ -575,3 +575,46 @@ the requested test. These are user observations without new logs/photos; they
 do not prove forced-kill recovery or the six-minute watchdog on hardware.
 Session/watchdog limits remain five/six minutes
 and the app still saves and exits for stock sleep.
+
+
+### 0.3.7 continuous TXT sessions — physical retest pending
+
+The UI no longer exits after five minutes and no longer starts the six-minute
+shell watchdog. `SessionSupervisor` runs before stock preparation, owns the
+runner child and reads an anonymous nonblocking pipe. The input loop and
+RenderWorker each write a distinct one-byte heartbeat at most once a second.
+The worker ticks while idle and pulses from its own loop; a separate timer
+thread cannot conceal a blocked renderer. There are no heartbeat filesystem
+writes, persisted heartbeat paths or wall-clock comparisons.
+
+Both channels must start within 60 seconds. After the first pulse, input has a
+15-second deadline and rendering a 30-second deadline. Heartbeats represent
+loop execution, not page turns: a stationary page is healthy. On timeout the
+supervisor sends ALRM/CONT to its owned runner; the runner yields pixels and
+applies the existing two-second reader-exit policy. Cleanup has ten seconds,
+then the owned runner can be killed/reaped and a bounded token-qualified
+recovery attempted under the permanent operation guard. The token is captured
+only for the supervisor's own child boot/start identity and never rebound.
+Abnormal runner death also invokes recovery. Supervisor death sends TERM to the
+runner via PR_SET_PDEATHSIG; explicit KUAL signals are relayed to the runner.
+The diagnostic retains its existing 90-second app/120-second watchdog bounds.
+
+The pipe uses fixed bounded state and no new thread. It adds one native
+supervisor process and kernel pipe storage; actual PW1 memory/battery cost is
+not yet measured. Stock helper execs close the heartbeat descriptor with other
+inherited descriptors. A pipe-write failure ends the reader instead of silently
+running unsupervised. Existing render/storage ownership and SDK pin are intact.
+
+Real touches request `lipc-set-prop -i com.lab126.powerd
+ touchScreenSaverTimeout 1`, limited to once per 30 seconds with a one-second
+command deadline. This follows KOReader's `resetT1Timeout` in
+[powerd.lua](https://github.com/koreader/koreader/blob/master/frontend/device/kindle/powerd.lua)
+(observed blob `011d77ab72bc28762758ccc50bcfbaaa183e3a07`). No heartbeat renews
+inactivity and no preventScreenSaver flag is set. Idle sleep and the physical
+power button remain stock policy; property support and active-reading behavior
+need a prolonged PW1 test. A failed reset is logged and throttled, leaving the
+validated save-and-exit path available.
+
+The updated sample TXT changes its content identity and may reset that sample's
+position. Physical 0.3.6 evidence does not prove the new supervisor; see
+[0.3.7 checks](validation/pw1-0.3.7-checks.md).

@@ -61,6 +61,8 @@ Refer to https://freeink.org/llms.txt for guidance.
 
 - 0.3.6 physical logs (07:57:05 and 07:57:47 on 2026-10-15) confirm native reader registration behind sh, page 3 saved on power, sent=1, sleep-aware cleanup, successful KUAL reopen to file list and normal Exit/cleanup. User separately confirms selecting Boas-vindas resumes the same page; that action has no supplied log. File-list startup is expected save-and-exit behavior. User later confirmed all three requested checks: corner exit/reopen, five-minute timeout/reopen and correct bar/sleep appearance (no new logs/photos). Responsive corner exit does not prove forced kill; five-minute timeout does not prove the six-minute watchdog. Do not claim in-memory sleep or forced-crash recovery. Raw evidence/hashes are in docs/validation/pw1-0.3.6-checks.md.
 
+- 0.3.7 removes UI five/six-minute limits. Native SessionSupervisor owns runner + anonymous heartbeat pipe: input/render loops pulse independently (1 s); startup 60 s, input 15 s, render 30 s, cleanup 10 s. Tokens bind recovery to its own runner; parent-death TERM covers supervisor loss. Diagnostic bounds stay. UserActivity renews touchScreenSaverTimeout only for real input, throttled 30 s/bounded 1 s, never preventScreenSaver or heartbeat-driven resets. Long active/idle PW1 validation is pending; sample TXT content changed and its saved position may reset.
+
 ## Misc Repo Gotchas
 
 - POSIX TZ signs are inverted from ISO 8601 in `TimeStore::applyTimezone()`: `"UTC-1"` means UTC+1.

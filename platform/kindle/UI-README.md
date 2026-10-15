@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.6
+# CrossInk PW1 — prévia TXT 0.3.7
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -31,46 +31,41 @@ contra caminhos que escapem dessa pasta de dados.
 5. Envie uma foto da leitura e o arquivo `crossink/logs/ui.log`, disponível
    quando reconectar pelo USB. O log anterior fica em `ui.previous.log`.
 
-Cada sessão desta prévia termina automaticamente após **5 minutos**. O
-supervisor encerra uma execução travada após **6 minutos** e retoma os processos
-que ele pausou. Para sair durante a leitura, segure o canto superior direito
-por cinco segundos, ou toque em **Sair**. A opção KUAL → CrossInk PW1 →
-**Restaurar interface do Kindle** tenta recuperar uma sessão interrompida.
-Não conecte o USB durante a sessão; saia antes.
+A leitura nesta versão pode continuar sem limite fixo de duração. Um supervisor
+acompanha a entrada e o desenho das páginas e tenta recuperar a interface se
+algum deles parar de responder. Ficar na mesma página sem tocar é normal e
+não aciona essa recuperação. O diagnóstico de tela mantém seu limite anterior.
 
-## Atualização e reteste da 0.3.6
+Para sair, toque em **Sair** ou segure o canto superior direito por cinco
+segundos. A opção KUAL → CrossInk PW1 → **Restaurar interface do Kindle**
+continua disponível. Saia antes de conectar o cabo USB.
 
-Na 0.3.5, a abertura e o repouso funcionaram no PW1, e o log confirmou que o
-sinal chegou ao lançador. A reabertura falhou e `launcher.log` estava vazio.
-Um defeito de herança da trava foi reproduzido localmente; o ponto exato da
-falha no aparelho ainda não foi identificado.
+## Atualização e teste prolongado da 0.3.7
 
-A 0.3.6 libera a trava explicitamente, impede que auxiliares herdem descritores,
-registra o leitor real mesmo com um shell intermediário e registra a tentativa
-antes da preparação. Aguarda até cinco segundos se a abertura coincidir com a
-limpeza anterior. Esses caminhos passaram nos testes locais e ARM emulados;
-os logs da 0.3.6 confirmam repouso, reabertura pelo KUAL e saída normal no PW1.
-O usuário também confirmou a retomada da página ao selecionar o livro, o gesto
-do canto, a saída por cinco minutos e a aparência correta da barra/tela de repouso.
+O ciclo de repouso, reabertura, página salva, gesto do canto, saída por tempo
+limite e aparência da barra/tela foi validado na 0.3.6. A 0.3.7 substitui os
+limites da leitura por supervisão e precisa de novo teste no PW1.
 
-1. Instale conforme as instruções acima, mesclando as pastas e preservando
-   `crossink/data`.
-2. **Reinicie o Kindle uma vez após atualizar da 0.3.5.** Isso descarta
-   descritores que processos anteriores à atualização possam ter herdado.
-   Não apague `state/operation.lock` para tentar destravar.
-3. Abra o TXT, avance uma página e pressione o botão de repouso uma vez.
-4. Desperte e reabra pelo KUAL. Confira a página salva. Repita esse ciclo.
-5. Teste **Sair**, nova abertura, gesto do canto e encerramento por cinco minutos.
-6. Confira visualmente a tela de descanso e a barra de status. Copie
-   `crossink/logs/launcher.log`, `ui.log` e `ui.previous.log` depois do teste,
-   inclusive se alguma abertura falhar.
+1. Instale mesclando as pastas e preservando `crossink/data`. Feche a versão
+   anterior antes de copiar. Ao atualizar da 0.3.5 diretamente, reinicie uma
+   vez para descartar descritores antigos; não apague `state/operation.lock`.
+2. Leia por **15 a 20 minutos**, virando páginas regularmente. O aplicativo
+   deve permanecer aberto além dos antigos cinco/seis minutos.
+3. Pressione o botão de repouso, desperte e reabra pelo KUAL. Selecione o
+   livro e confira a última página salva.
+4. Deixe uma sessão sem tocar e observe o repouso automático do Kindle.
+   Anote quanto tempo levou. O temporizador é renovado somente por toques;
+   esta versão não altera a configuração de tempo do sistema.
+5. Teste **Sair**, reabertura e o gesto de cinco segundos no canto.
+6. Confira a barra durante leitura/saída e a imagem de repouso. Envie
+   `crossink/logs/launcher.log`, `ui.log` e `ui.previous.log` após os testes.
 
-Na abertura, procure `reader_identity ... registered=1` e
-`launcher_identity ... valid=1`. No repouso, procure `launcher_signal=12 sent=1`,
-`power_handoff=launcher grace_seconds=2` e o salvamento da página. No gesto,
-o sinal é 10. Não é necessário provocar um travamento no aparelho.
-Uma tentativa de Restaurar durante a preparação pode retornar
-`session_guard=busy`; aguarde alguns segundos e tente novamente.
+O TXT Boas-vindas foi atualizado. Sua posição pode reiniciar porque o conteúdo
+mudou; os demais livros mantêm suas posições. Na abertura, procure
+`reader_identity ... registered=1` e `launcher_identity ... valid=1`.
+O launcher.log inclui `supervisor=started`; toques podem gerar
+`user_activity=reset exit=0`. Uma falha nesse comando fica registrada e o
+repouso padrão continua possível. Não é necessário provocar um travamento.
 
 ## Comportamento do repouso
 
@@ -80,7 +75,8 @@ Depois de acordar, é preciso abri-lo novamente pelo KUAL. A saída por evento d
 energia foi confirmada na 0.3.4, 0.3.5 e 0.3.6. Na 0.3.6, os logs confirmam
 a reabertura pelo KUAL; o usuário confirmou que selecionar o livro retoma a
 página salva. Abrir na lista de arquivos é o comportamento atual da prévia.
-A recuperação forçada de um travamento real continua pendente.
+A recuperação forçada da 0.3.7 e as sessões prolongadas ainda precisam de
+validação física.
 
 O monitor escuta `powerd` por `/usr/bin/lipc-wait-event`, sem alterar energia ou
 luz frontal. Se o monitor falhar, a sessão termina. Se o comando estiver ausente,
@@ -93,7 +89,7 @@ já estiver pausado, a prévia não abre. Ao sair, a barra é restaurada e `volu
 é retomado. Falhas na restauração preservam o registro para nova tentativa pelo
 KUAL. A recuperação pede a tela inicial somente quando `powerd` está ativo;
 em repouso, preserva a tela da Amazon. O usuário confirmou a aparência correta da barra e da tela de repouso
-no teste da 0.3.6.
+no teste da 0.3.6; a 0.3.7 precisa de nova observação.
 
 ## Arquivos e limites atuais
 
@@ -134,5 +130,6 @@ não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulaç�
 validam a lógica. Repouso, reabertura pelo KUAL e saída normal foram registrados
 na 0.3.6 no PW1; o usuário confirmou a retomada da página, o gesto do canto,
 o encerramento por cinco minutos e a aparência da barra/tela de descanso.
-Recuperação de travamento real e o watchdog de seis minutos ainda precisam
-de validações separadas.
+A 0.3.7 precisa de teste físico das sessões prolongadas, do repouso por
+inatividade e da recuperação. O watchdog fixo de seis minutos foi substituído
+pela supervisão da entrada/desenho.

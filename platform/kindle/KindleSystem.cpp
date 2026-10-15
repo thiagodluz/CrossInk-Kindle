@@ -95,6 +95,16 @@ Result run(const char* command, const char* const* arguments) {
   return captured;
 }
 }  // namespace
+bool UserActivity::notify(uint64_t now, const char* command) {
+  if (attempted_ && now - last_ < 30000) return true;
+  attempted_ = true;
+  last_ = now;
+  const char* arguments[] = {command, "-i", "com.lab126.powerd", "touchScreenSaverTimeout", "1", nullptr};
+  const auto result = run(command, arguments);
+  std::printf("user_activity=reset exit=%d timeout=%d truncated=%d\n", result.exitCode, result.timedOut,
+              result.overflow);
+  return result.ok();
+}
 bool logPowerState(const char* stage, const char* command) {
   const char* arguments[] = {command, "com.lab126.powerd", "state", nullptr};
   const auto result = run(command, arguments);

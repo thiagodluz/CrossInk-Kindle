@@ -34,6 +34,7 @@
 #include "KindleSystem.h"
 #include "LauncherSession.h"
 #include "RenderWorker.h"
+#include "SessionSupervisor.h"
 
 namespace fui = freeink::ui;
 namespace {
@@ -498,7 +499,8 @@ int main(int argc, char** argv) {
   if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
   if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
-  std::puts("CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)");
+  if (argc == 3 && !std::strcmp(argv[1], "--supervise-ui")) return kindle::superviseSession(argv[2]);
+  std::puts("CrossInk PW1 UI preview 0.3.7 (native renderer, FreeInkUI and TXT module)");
   if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
   if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::logPowerState(argv[2]) ? 0 : 1;
@@ -589,13 +591,20 @@ int main(int argc, char** argv) {
     std::printf("preview page=%zu count=%zu\n", app->currentPage() + 1, app->pageCount());
     return saved && !app->failed() ? 0 : 1;
   }
-  kindle::RenderWorker worker(&PortApp::work, app.get());
+  signal(SIGPIPE, SIG_IGN);
+  kindle::SessionHeartbeat inputHeartbeat, renderHeartbeat;
+  if (!inputHeartbeat.begin('I') || !renderHeartbeat.begin('R')) return 1;
+  kindle::RenderWorker worker(&PortApp::work, app.get(), &renderHeartbeat);
   if (!worker.start()) return 1;
-  const unsigned long start = millis();
   uint64_t contactGeneration = 0;
   bool inputError = false;
   kindle::EmergencyExit emergency;
-  while (!interrupted && !app->exited() && millis() - start < 300000) {
+  kindle::UserActivity activity;
+  while (!interrupted && !app->exited()) {
+    if (!inputHeartbeat.pulse()) {
+      inputError = true;
+      break;
+    }
     const auto event = power.poll();
     if (event != kindle::PowerEvent::None) {
       if (event == kindle::PowerEvent::ListenerFailed) inputError = true;
@@ -613,6 +622,7 @@ int main(int argc, char** argv) {
       inputError = true;
       break;
     }
+    if (result) activity.notify(kindle::monotonicMilliseconds());
     if (emergency.update(result ? &touch : nullptr, millis())) {
       LOG_INF("UI", "Emergency corner hold; requesting launcher recovery");
       requestLauncher(SIGUSR1);

@@ -2,6 +2,7 @@
 #include <pthread.h>
 
 #include "KindleBackends.h"
+#include "SessionHeartbeat.h"
 
 namespace kindle {
 struct UiJob {
@@ -14,7 +15,7 @@ struct UiJob {
 class RenderWorker {
  public:
   using Handler = void (*)(const UiJob&, void*);
-  RenderWorker(Handler handler, void* context);
+  RenderWorker(Handler handler, void* context, SessionHeartbeat* heartbeat = nullptr);
   ~RenderWorker() {
     stop();
     if (conditionReady_) pthread_cond_destroy(&condition_);
@@ -38,5 +39,6 @@ class RenderWorker {
   bool started_ = false, stopping_ = false;
   Handler handler_;
   void* context_;
+  SessionHeartbeat* heartbeat_;
 };
 }  // namespace kindle

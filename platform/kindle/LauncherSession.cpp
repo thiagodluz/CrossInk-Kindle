@@ -69,6 +69,18 @@ bool owner(long& pid, unsigned long long& started, const char* identityProc = "/
 }
 }  // namespace
 
+bool captureOwnedSession(long expectedOwner, std::string& token, const char* identityProc) {
+  long pid = -1;
+  unsigned long long started = 0;
+  char boot[64];
+  if (!owner(pid, started, identityProc) || pid != expectedOwner ||
+      !readLine(std::string(identityProc) + "/sys/kernel/random/boot_id", boot, sizeof(boot)))
+    return false;
+  boot[std::strcspn(boot, "\r\n")] = 0;
+  token = std::to_string(pid) + ":" + boot + ":" + std::to_string(started);
+  return true;
+}
+
 int guardSession(const char* runner, int count, char** arguments) {
   const auto base = root();
   if (base.empty() || base[0] != '/' || base + "/runner.sh" != runner) {
@@ -93,7 +105,8 @@ int guardSession(const char* runner, int count, char** arguments) {
     return 1;
   }
   int locked = -1;
-  const bool cleanup = count > 0 && !std::strcmp(arguments[0], "--cleanup");
+  const bool cleanup =
+      count > 0 && (!std::strcmp(arguments[0], "--cleanup") || !std::strcmp(arguments[0], "--recover-token"));
   const bool startup = count == 0 || (count == 1 && (!*arguments[0] || !std::strcmp(arguments[0], "--ui")));
   const unsigned attempts = cleanup ? 100U : startup ? 50U : 1U;
   // Cleanup must not be lost merely because a duplicate launch briefly owns

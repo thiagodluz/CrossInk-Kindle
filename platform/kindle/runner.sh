@@ -18,7 +18,7 @@ case "${1:-}" in
     mkdir -p "$CI_ROOT/logs" || exit 1
     exec >> "$CI_ROOT/logs/launcher.log" 2>&1
     date
-    echo "launcher_attempt mode=${1:-diagnostic} shell=$$ package=0.3.6"
+    echo "launcher_attempt mode=${1:-diagnostic} shell=$$ package=0.3.7"
     ;;
 esac
 CI_GUARD_HELD=0
@@ -37,6 +37,9 @@ if [ "${1:-}" = --guarded ]; then
   trap release_operation 0
   shift
 elif [ "${1:-}" != --watchdog ]; then
+  if [ "${1:-}" = --ui ]; then
+    exec "$CI_GUARD" --supervise-ui "$CI_ROOT/runner.sh"
+  fi
   exec "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" "$@"
 fi
 
@@ -253,7 +256,6 @@ if [ "${1:-}" = --ui ]; then
   ci_binary=crossink-ui
   ci_argument=--app
   ci_log=ui
-  ci_timeout=360
 elif [ -n "${1:-}" ]; then
   echo 'ERROR unknown launcher mode'
   exit 1
@@ -304,21 +306,24 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'echo "Emergency exit requested"; exit 130' USR1
 trap 'CI_EXIT_SIGNAL=USR2; echo "power_handoff=launcher grace_seconds=2"; exit 0' USR2
+trap 'CI_EXIT_SIGNAL=USR2; echo "ERROR heartbeat timeout; requesting recovery"; exit 1' ALRM
 trap '' HUP
 
 # Keep the current and previous log for each mode. Sessions are time-bounded.
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.6 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.7 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1
 "$CI_ROOT/bin/$ci_binary" --probe || exit 1
 [ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-prepare || :
 
-(exec 9>&-; exec /bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout") &
-CI_WATCHDOG=$!
+if [ "$ci_log" != ui ]; then
+  (exec 9>&-; exec /bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout") &
+  CI_WATCHDOG=$!
+fi
 
 # The TXT UI keeps CVM/WM running; the diagnostic pauses them. Pause volumd
 # only in UI mode, and record identity before sending any stop signal.

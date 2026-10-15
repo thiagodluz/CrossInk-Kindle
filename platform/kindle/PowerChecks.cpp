@@ -24,6 +24,16 @@ int main(int argc, char** argv) {
   using kindle::PowerEvent;
   using kindle::PowerMonitor;
   if (argc != 3) return 2;
+  if (!std::strncmp(argv[2], "activity-", 9)) {
+    kindle::UserActivity activity;
+    const bool expected = !std::strcmp(argv[2], "activity-ok");
+    check(activity.notify(1, argv[1]) == expected, "first real input renews timer");
+    check(activity.notify(1000, argv[1]), "rapid input throttled");
+    check(activity.notify(30001, argv[1]) == expected, "later real input renews timer");
+    int status;
+    check(waitpid(-1, &status, WNOHANG) == -1 && errno == ECHILD, "activity helpers reaped");
+    return failures ? 1 : 0;
+  }
   if (!std::strncmp(argv[2], "recovery-", 9)) {
     const std::string base = argv[1];
     const bool expected = !std::strcmp(argv[2], "recovery-active") || !std::strcmp(argv[2], "recovery-sleep");

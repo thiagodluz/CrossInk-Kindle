@@ -31,6 +31,7 @@
 
 #include "EmergencyExit.h"
 #include "KindlePower.h"
+#include "KindleSystem.h"
 #include "RenderWorker.h"
 
 namespace fui = freeink::ui;
@@ -505,9 +506,13 @@ class PortApp {
 
 int main(int argc, char** argv) {
   setvbuf(stdout, nullptr, _IOLBF, 0);
-  std::puts("CrossInk PW1 UI preview 0.3.3 (native renderer, FreeInkUI and TXT module)");
+  std::puts("CrossInk PW1 UI preview 0.3.4 (native renderer, FreeInkUI and TXT module)");
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
-  if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::PowerMonitor::logState(argv[2]) ? 0 : 1;
+  if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::logPowerState(argv[2]) ? 0 : 1;
+  if (argc == 3 && !std::strcmp(argv[1], "--status-bar")) {
+    if (std::strcmp(argv[2], "hide") && std::strcmp(argv[2], "show")) return 2;
+    return kindle::setStatusBarVisible(!std::strcmp(argv[2], "show")) ? 0 : 1;
+  }
   if (argc == 2 && !std::strcmp(argv[1], "--probe")) {
     kindle::Display probe;
     kindle::Input input;
@@ -629,9 +634,11 @@ int main(int argc, char** argv) {
     }
   }
   worker.stop();  // Save progress and join before releasing display/storage/font state.
-  const bool restored = display.restore();
+  const bool yieldForPower = powerRequested && !inputError;
+  if (yieldForPower) display.handoffToSystem();
+  const bool restored = yieldForPower || display.restore();
   power.stop();
-  LOG_INF("UI", "exit joined=yes display_restored=%d interrupted=%d reason=%s", restored, static_cast<int>(interrupted),
+  LOG_INF("UI", "exit joined=yes display_released=%d interrupted=%d reason=%s", restored, static_cast<int>(interrupted),
           powerRequested ? "power" : "normal");
   return !inputError && !app->failed() && restored ? 0 : 1;
 }

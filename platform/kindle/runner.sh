@@ -82,6 +82,18 @@ resume_ui() {
   fi
 }
 
+restore_bar() {
+  [ -f "$CI_LOCK/status-bar" ] || return 0
+  read -r ci_bar < "$CI_LOCK/status-bar"
+  [ "$ci_bar" = hidden ] || return 0
+  if "$CI_ROOT/bin/crossink-ui" --status-bar show; then
+    echo restored > "$CI_LOCK/status-bar"
+    return 0
+  fi
+  echo 'ERROR status bar restoration failed; keep lock for KUAL Restore'
+  return 1
+}
+
 terminate_child() {
   if [ -f "$CI_LOCK/child" ]; then
     read -r ci_pid ci_started < "$CI_LOCK/child"
@@ -103,6 +115,7 @@ recover() {
   lock_same_boot || return 0
   terminate_child
   resume_ui
+  restore_bar || return 1
   # Request home repaint if the stock helper is available. No settings changed.
   if [ -x /usr/bin/lipc-set-prop ]; then
     /usr/bin/lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home 2>/dev/null
@@ -126,8 +139,11 @@ if [ "${1:-}" = --watchdog ]; then
 fi
 
 if [ "${1:-}" = --recover ]; then
-  recover
-  if ! owner_alive && ! legacy_owner_alive; then rm -rf "$CI_LOCK"; fi
+  if recover; then
+    if ! owner_alive && ! legacy_owner_alive; then rm -rf "$CI_LOCK"; fi
+  else
+    exit 1
+  fi
   exit 0
 fi
 
@@ -160,8 +176,10 @@ cleanup() {
   trap '' INT TERM USR1 USR2
   [ -n "$CI_CHILD" ] && terminate_child
   resume_ui
+  ci_bar_ok=1
+  restore_bar || ci_bar_ok=0
   [ -n "$CI_WATCHDOG" ] && kill -TERM "$CI_WATCHDOG" 2>/dev/null
-  if owner_alive; then rm -rf "$CI_LOCK"; fi
+  if [ "$ci_bar_ok" -eq 1 ] && owner_alive; then rm -rf "$CI_LOCK"; fi
 }
 trap cleanup 0
 trap 'exit 143' TERM
@@ -174,25 +192,37 @@ trap '' HUP
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.3 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.4 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1
 "$CI_ROOT/bin/$ci_binary" --probe || exit 1
-[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-pause || :
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-prepare || :
 
 /bin/sh "$CI_ROOT/runner.sh" --watchdog "$CI_SESSION" "$ci_timeout" &
 CI_WATCHDOG=$!
 
-# Pause only running stock UI processes; record names before sending signals.
+# The TXT UI keeps CVM/WM running; the diagnostic pauses them. Pause volumd
+# only in UI mode, and record identity before sending any stop signal.
 # A process which was already stopped is deliberately left as it was.
 ci_paused=0
+ci_cvm=0
+ci_wm=0
 for ci_file in "$CI_PROC"/[0-9]*/status; do
   [ -r "$ci_file" ] || continue
   ci_pid=${ci_file%/status}; ci_pid=${ci_pid##*/}
   read_process "$ci_pid" || continue
   case "$ci_name" in
-    cvm|awesome) ;;
+    cvm|awesome)
+      if [ "$ci_log" = ui ]; then
+        # PW1 power handling needs the running stock framework. Only the
+        # diagnostic keeps the previous stop/resume policy.
+        case "$ci_state" in T|t|'') continue ;; esac
+        case "$ci_name" in cvm) ci_cvm=1 ;; awesome) ci_wm=1 ;; esac
+        echo "framework=running pid=$ci_pid name=$ci_name"
+        continue
+      fi
+      ;;
     volumd) [ "$ci_log" = ui ] || continue ;;
     *) continue ;;
   esac
@@ -208,12 +238,22 @@ for ci_file in "$CI_PROC"/[0-9]*/status; do
     exit 1
   fi
 done
-if [ "$ci_paused" -eq 0 ]; then
+if [ "$ci_log" = ui ]; then
+  if [ "$ci_cvm:$ci_wm" != 1:1 ]; then
+    echo 'ERROR PW1 framework must be running; ending before display writes'
+    exit 1
+  fi
+  # Persist before issuing hide: recovery must cover interruption after the
+  # stock UI changes but before the command returns.
+  echo hidden > "$CI_LOCK/status-bar"
+  "$CI_ROOT/bin/$ci_binary" --status-bar hide || exit 1
+  echo 'framework_policy=cooperative status_bar=soft-hidden'
+elif [ "$ci_paused" -eq 0 ]; then
   echo 'ERROR no stock UI process found; ending before display writes'
   exit 1
 fi
-sleep 1
-[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state after-pause || :
+if [ "$ci_log" = ui ]; then sleep 3; else sleep 1; fi
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state after-prepare || :
 CROSSINK_LAUNCHER_PID=$$
 export CROSSINK_LAUNCHER_PID
 "$CI_ROOT/bin/$ci_binary" "$ci_argument" &
@@ -224,5 +264,5 @@ wait "$CI_CHILD"
 ci_result=$?
 CI_CHILD=
 echo "exit_status=$ci_result"
-[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-resume || :
+[ "$ci_log" != ui ] || "$CI_ROOT/bin/$ci_binary" --power-state before-release || :
 exit "$ci_result"

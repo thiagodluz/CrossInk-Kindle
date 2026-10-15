@@ -251,6 +251,7 @@ bool Display::update(bool full) {
   return true;
 }
 bool Display::present(bool full) {
+  if (handedOff_) return false;
   if (!mapping_ || !pixels_ || !original_) return false;
   modified_ = true;
   for (uint32_t y = 0; y < layout_.height; ++y)
@@ -258,6 +259,7 @@ bool Display::present(bool full) {
   return update(full);
 }
 bool Display::restore() {
+  if (handedOff_) return true;
   if (!modified_) return true;
   for (uint32_t y = 0; y < layout_.height; ++y)
     std::memcpy(mapping_ + layout_.row(y), original_ + static_cast<size_t>(y) * layout_.width, layout_.width);

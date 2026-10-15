@@ -42,7 +42,7 @@ Refer to https://freeink.org/llms.txt for guidance.
 
 ## Kindle PW1 branch
 
-- `platform/kindle/` provides the validated diagnostic and a native TXT preview: 0.2.1 basic reading/normal exit/corner gesture validated on PW1, and 0.3.0/0.3.1 power button tests failed; 0.3.2 aborted in preflight; 0.3.3 NSS-free PTY setup awaiting retest. The preview reuses GfxRenderer/FreeInkUI/fonts/Txt; ActivityManager, UITheme and EPUB are not yet connected. Package it with `scripts/kindle/package-ui.py`; diagnostic-only packaging remains `build-package.py`.
+- `platform/kindle/` provides the validated diagnostic and a native TXT preview: 0.2.1 basic reading/normal exit/corner gesture validated on PW1, and 0.3.0/0.3.1 power button tests failed; 0.3.2 aborted in preflight; 0.3.3 opens but power remains active/no event bytes; 0.3.4 cooperative framework awaiting retest. The preview reuses GfxRenderer/FreeInkUI/fonts/Txt; ActivityManager, UITheme and EPUB are not yet connected. Package it with `scripts/kindle/package-ui.py`; diagnostic-only packaging remains `build-package.py`.
 - Two device runs on 2026-10-14 confirmed `mxc_epdc_fb` at 758x1024, 8bpp, stride 768, offsets 0/0, rotate field 3, and the Pearl send/wait ioctls. Portrait output is upright without changing the framebuffer mode.
 - `cyttsp` on event0 reports ABS_MT_POSITION_X/Y (53/54), X 0..758, Y 0..1024, and BTN_TOUCH. Uncorrected normalized coordinates match portrait targets; do not apply a second rotation based solely on framebuffer `rotate=3`.
 - Native rendering uses a canonical 1024x758 1-bit buffer; portrait drawing and inverse touch conversion produce the physical 758x1024 pixels. Storage is anchored below `/mnt/us/crossink/data`; the render worker is joinable and owns UI/file state. Static ARM softfp builds avoid newer runtime dependencies.
@@ -50,7 +50,8 @@ Refer to https://freeink.org/llms.txt for guidance.
 - 0.3.1 `ui(2).log` records zero complete event lines despite explicit subscriptions. 0.3.2 uses a raw PTY (local unflushed-event regression) and bounded read-only state snapshots around stock pause/resume, plus byte/partial counters. Do not claim the PW1 cause or fix is established until retested.
 - 0.3.2 `ui(3).log`: __getpagesize/_rtld_global_ro assertion during preflight, before any stock STOP. Legacy grantpt loads group/NSS modules into static glibc. Avoid grantpt/account lookup; verify kernel devpts owner/mode without changing permissions. ARM tests MUST include the target sysroot (-L); without it, missing NSS libraries conceal the crash. Release audit rejects NSS/account symbols.
 - `KindlePower` owns a stock LIPC helper; power events trigger save-and-exit to Amazon UI, not in-app suspend. Keep the five-minute limit until power behavior is tested. Missing helper must fail preflight.
-- Normal Exit restores pixels and resumes `cvm`/`awesome`. The user confirmed the five-minute timeout. Forced-crash recovery and the 0.3.3 power handoff still need device validation. Use `/proc/PID/status` rather than `/proc/PID/comm` on the old kernel.
+- 0.3.4 TXT keeps CVM/awesome alive (PW1 upstart/KOReader policy), temporarily soft-hides Pillow and pauses only volumd. KindleSystem bounds stock CLI calls; hide is recorded before mutation, failed show retains recovery lock. On a real power event, join then relinquish framebuffer restoration to preserve the stock sleep screen. Normal exit still restores pixels. The diagnostic retains its old STOP policy.
+- The user confirmed the five-minute timeout. Forced-crash recovery and the 0.3.4 cooperative power handoff still need device validation. Use `/proc/PID/status` rather than `/proc/PID/comm` on the old kernel.
 
 ## Misc Repo Gotchas
 

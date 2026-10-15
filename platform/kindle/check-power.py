@@ -123,4 +123,27 @@ else:
         if mode in ('timeout','closed','flood'): assert 'timeout=1' in result.stdout
         assert time.monotonic()-started<2, 'state query blocked shutdown'
         print(f'power_state_check {mode}=ok',flush=True)
+    bar_helper = base / 'lipc-set-prop'
+    bar_helper.write_text('''#!/usr/bin/env python3
+import json,os,sys,time,signal
+assert sys.argv[1:3]==['com.lab126.pillow','interrogatePillow'],sys.argv
+payload=json.loads(sys.argv[3])
+assert payload=={'pillowId':'default_status_bar','function':'nativeBridge.'+os.environ['MOCK_BAR_ACTION']+'Me();'}
+mode=os.environ['MOCK_BAR_MODE']
+if mode=='fail': sys.exit(17)
+if mode=='timeout':
+    signal.signal(signal.SIGTERM,signal.SIG_IGN)
+    while True: time.sleep(1)
+''')
+    bar_helper.chmod(0o755)
+    for action,mode in [('hide','ok'),('show','ok'),('hide','fail'),('show','timeout')]:
+        started=time.monotonic()
+        result=subprocess.run([*launch,str(bar_helper),'bar-'+action+'-'+mode],
+            env=dict(os.environ,MOCK_BAR_ACTION=action,MOCK_BAR_MODE=mode),
+            text=True,capture_output=True,timeout=3)
+        assert result.returncode==0,result.stdout+result.stderr
+        assert 'status_bar='+action in result.stdout
+        assert time.monotonic()-started<2,'status bar helper blocked recovery'
+        if mode=='timeout': assert 'timeout=1' in result.stdout
+        print(f'framework_bar_check {action}/{mode}=ok',flush=True)
 print('Power monitor checks passed',flush=True)

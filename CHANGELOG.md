@@ -1,3 +1,15 @@
+## [Kindle PW1 TXT preview 0.3.4] - 2026-10-14
+
+### Changed
+
+- TXT sessions keep the PW1 CVM and window manager running and temporarily hide the stock status bar using the legacy Pillow UI hook. Only volumd is paused for USB ownership. This replaces the previous blanket UI freeze after 0.3.3 opened successfully but still received zero event bytes and observed powerd as active before normal exit.
+- Status-bar commands have a one-second deadline, owned child cleanup and recovery records written before hide. Normal, signal and KUAL recovery restore the bar; a failed restoration retains the lock for retry. A failed hide or already-stopped framework refuses reader startup.
+- When yielding to a received power event, reader cleanup releases framebuffer ownership without restoring the captured opening image over the Amazon sleep screen. Normal exit retains framebuffer restoration.
+
+### Added
+
+- Regression checks for running CVM/WM heartbeats, hide/show failures and recovery retry, bounded Pillow commands, and the survival of a separately painted stock sleep framebuffer through reader cleanup. Hardware validation of this cooperative path remains pending.
+
 ## [Kindle PW1 TXT preview 0.3.3] - 2026-10-14
 
 ### Fixed

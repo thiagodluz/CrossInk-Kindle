@@ -113,13 +113,15 @@ def main():
         entries['crossink/development/ui-objects/'+path.name]=path
     for path in (output/'diagnostic/diagnostic-objects').glob('*.o'):
         entries['crossink/development/diagnostic-objects/'+path.name]=path
-    manifest = {'version':'0.3.3','is_full_reader':False,'formats':['TXT UTF-8'],
+    manifest = {'version':'0.3.4','is_full_reader':False,'formats':['TXT UTF-8'],
                 'source_commit':receipt['source_commit'],'source_dirty':receipt['source_dirty'],
                 'sdk_commit':receipt['sdk_commit'],'session_timeout_seconds':300,
                 'watchdog_seconds':360,'power_policy':'save-and-exit-on-powerd-event',
+                'framework_policy':'keep-cvm-awesome-running-soft-hide-status-bar',
+                'status_bar_command_timeout_seconds':1,
                 'power_helper':'/usr/bin/lipc-wait-event','power_grace_seconds':2,'linkage':'static','minimum_kernel':'2.6.31',
                 'files_sha256':{name:sha(path) for name,path in entries.items()}}
-    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.3.3.zip'
+    archive = output/'CrossInk-PW1-KUAL-previa-TXT-0.3.4.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as package:
         for name,path in entries.items():
             info=zipfile.ZipInfo(name,(2026,10,14,0,0,0))

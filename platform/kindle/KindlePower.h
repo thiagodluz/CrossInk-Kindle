@@ -19,9 +19,6 @@ class PowerMonitor {
   PowerEvent poll();
   void stop();
   static PowerEvent parse(const char* line);
-  // Run only before starting or after joining the render worker. Diagnostic
-  // query, bounded to one second, with no property writes or policy changes.
-  static bool logState(const char* stage, const char* command = "/usr/bin/lipc-get-prop");
 
  private:
   int fd_ = -1;

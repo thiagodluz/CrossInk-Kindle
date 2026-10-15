@@ -18,6 +18,7 @@ class HalDisplay {
   bool ready() const { return frame_ != nullptr; }
   bool healthy() const { return healthy_; }
   bool restore() { return preview_ || backend_.restore(); }
+  void handoffToSystem() { backend_.handoffToSystem(); }
   bool savePreview(const char* path) const;
   uint8_t* getFrameBuffer() const { return frame_; }
   uint16_t getDisplayWidth() const { return DISPLAY_WIDTH; }

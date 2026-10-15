@@ -46,10 +46,17 @@ int main(int argc,char** argv) {
  if(argc==3 && !strcmp(argv[1],"--power-state")) {
    printf("mock_power_state stage=%s\\n",argv[2]); return 0;
  }
+ if(argc==3 && !strcmp(argv[1],"--status-bar")) {
+   printf("mock_status_bar=%s\\n",argv[2]);
+   if(!strcmp(argv[2],"hide") && getenv("MOCK_BAR_FAIL_HIDE")) return 17;
+   if(!strcmp(argv[2],"show") && getenv("MOCK_BAR_FAIL_SHOW")) return 17;
+   return 0;
+ }
  if(argc!=2) return 2;
  if(!strcmp(argv[1],"--version")) return 0;
  if(!strcmp(argv[1],"--probe")) return getenv("MOCK_PROBE_FAIL") ? 19 : 0;
  if(!strcmp(argv[1],"--diagnostic") || !strcmp(argv[1],"--app")) {
+   puts("mock_app=started");
    const char* mode=getenv("MOCK_MODE");
    if(mode && (!strcmp(mode,"stuck") || !strcmp(mode,"power-stuck"))) { signal(SIGTERM,SIG_IGN); signal(SIGUSR2,SIG_IGN); for(;;) pause(); }
    if(mode && !strcmp(mode,"wait")) for(;;) pause();
@@ -60,7 +67,9 @@ int main(int argc,char** argv) {
 ''')
         mock = base / "crossink-pw1"
         subprocess.run(["g++", str(native), "-o", str(mock)], check=True)
-        for profile, mode in itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck")):
+        cases = list(itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck")))
+        cases += [("ui",mode) for mode in ("bar-hide-fail","bar-show-fail","framework-stopped")]
+        for profile, mode in cases:
             app = base / (profile+"-"+mode)
             binary_name = "crossink-ui" if profile=="ui" else "crossink-pw1"
             arguments = ["--ui"] if profile=="ui" else []
@@ -70,9 +79,11 @@ int main(int argc,char** argv) {
             (app / "runner.sh").write_bytes((ROOT / "platform/kindle/runner.sh").read_bytes())
             proc = app / "proc"
             heartbeat = app / "ui-heartbeat"
+            wm_heartbeat = app / "wm-heartbeat"
             stopped_heartbeat = app / "stopped-heartbeat"
             volume_heartbeat = app / "volume-heartbeat"
             ui = subprocess.Popen([str(mock), "--heartbeat", str(heartbeat)])
+            wm = subprocess.Popen([str(mock), "--heartbeat", str(wm_heartbeat)])
             previously_stopped = subprocess.Popen([str(mock), "--heartbeat", str(stopped_heartbeat)])
             volume = subprocess.Popen([str(mock), "--heartbeat", str(volume_heartbeat)])
             runner = None
@@ -80,16 +91,20 @@ int main(int argc,char** argv) {
                 wait_for(lambda: heartbeat.exists() and heartbeat.stat().st_size > 0, "UI fixture not started")
                 wait_for(lambda: stopped_heartbeat.exists() and stopped_heartbeat.stat().st_size > 0, "stopped fixture not started")
                 wait_for(lambda: volume_heartbeat.exists() and volume_heartbeat.stat().st_size > 0, "volume fixture not started")
+                wait_for(lambda: wm_heartbeat.exists() and wm_heartbeat.stat().st_size > 0, "WM fixture not started")
+                if mode=="framework-stopped": os.kill(wm.pid,signal.SIGSTOP)
                 os.kill(previously_stopped.pid, signal.SIGSTOP)
                 time.sleep(0.2)
                 stopped_size = stopped_heartbeat.stat().st_size
-                for pid, name, status in ((ui.pid, "cvm", "S"), (previously_stopped.pid, "awesome", "T"), (volume.pid, "volumd", "S")):
+                for pid, name, status in ((ui.pid, "cvm", "S"), (wm.pid,"awesome","T" if mode=="framework-stopped" else "S"), (previously_stopped.pid, "awesome", "T"), (volume.pid, "volumd", "S")):
                     directory = proc / str(pid)
                     directory.mkdir(parents=True)
                     (directory / "status").write_text(f"Name:\t{name}\nState:\t{status} (fixture)\n")
                 env = dict(os.environ, CROSSINK_ROOT=str(app), CROSSINK_PROC_ROOT=str(proc),
                            CROSSINK_IDENTITY_PROC_ROOT=str(identities),
                            MOCK_MODE="stuck" if mode == "emergency" else "wait" if mode in ("interrupt", "recover", "power") else mode)
+                if mode=="bar-hide-fail": env["MOCK_BAR_FAIL_HIDE"]="1"
+                if mode=="bar-show-fail": env["MOCK_BAR_FAIL_SHOW"]="1"
                 if mode == "probe-fail":
                     env["MOCK_PROBE_FAIL"] = "1"
                 if mode in ("stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck"):
@@ -115,8 +130,14 @@ int main(int argc,char** argv) {
                     (proc / str(pid)).mkdir()
                     (proc / str(pid) / "status").write_text(f"Name:\t{binary_name}\nState:\tS (fixture)\n")
                     paused_size = heartbeat.stat().st_size
+                    wm_size = wm_heartbeat.stat().st_size
                     time.sleep(0.2)
-                    assert heartbeat.stat().st_size == paused_size, "stock UI wasn't paused"
+                    if profile=="ui":
+                        assert heartbeat.stat().st_size>paused_size, "cooperative CVM was frozen"
+                        assert wm_heartbeat.stat().st_size>wm_size, "cooperative WM was frozen"
+                    else:
+                        assert heartbeat.stat().st_size==paused_size, "diagnostic CVM wasn't paused"
+                        assert wm_heartbeat.stat().st_size==wm_size, "diagnostic WM wasn't paused"
                     # A second launch must refuse to acquire the existing lock.
                     second = subprocess.run(["/bin/sh", str(app / "runner.sh"), *arguments], env=env, capture_output=True, timeout=4)
                     assert second.returncode == 1, "duplicate launch accepted"
@@ -130,13 +151,17 @@ int main(int argc,char** argv) {
                         subprocess.run(["/bin/sh", str(app / "runner.sh"), "--recover"],
                                        env=env, check=True, capture_output=True, timeout=6)
                 result = runner.wait(timeout=8)
-                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0}[mode]
+                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0,"bar-hide-fail":1,"bar-show-fail":0,"framework-stopped":1}[mode]
                 assert result == expected, (mode, result, expected, (app / "logs" / (profile+".log")).read_text() if (app / "logs" / (profile+".log")).exists() else "no log")
                 resumed_size = heartbeat.stat().st_size
                 wait_for(lambda: heartbeat.stat().st_size > resumed_size, "UI not resumed")
                 resumed_volume = volume_heartbeat.stat().st_size
                 wait_for(lambda: volume_heartbeat.stat().st_size > resumed_volume, "volume service not resumed")
                 assert stopped_heartbeat.stat().st_size == stopped_size, "previously stopped UI was incorrectly resumed"
+                if mode=="bar-show-fail":
+                    assert (app / "state/launch.lock/status-bar").read_text().strip()=="hidden", "failed restore lost recovery record"
+                    retry_env=dict(env);retry_env.pop("MOCK_BAR_FAIL_SHOW")
+                    subprocess.run(["/bin/sh",str(app/"runner.sh"),"--recover"],env=retry_env,check=True,capture_output=True,timeout=6)
                 assert not (app / "state/launch.lock").exists(), "lock leaked"
                 log = (app / "logs" / (profile+".log")).read_text()
                 if mode == "probe-fail":
@@ -145,10 +170,20 @@ int main(int argc,char** argv) {
                     assert "paused pid=" in log and "resumed pid=" in log, "handoff missing"
                     assert (f"paused pid={volume.pid} name=volumd" in log) == (profile=="ui"), "USB ownership mismatch"
                 if profile=="ui" and mode!="probe-fail":
-                    assert "mock_power_state stage=before-pause" in log
-                    assert "mock_power_state stage=after-pause" in log
+                    assert f"paused pid={ui.pid} name=cvm" not in log
+                    assert f"paused pid={wm.pid} name=awesome" not in log
+                    assert f"resumed pid={ui.pid} name=cvm" not in log
+                    assert f"resumed pid={wm.pid} name=awesome" not in log
+                    assert "mock_power_state stage=before-prepare" in log
+                    if mode not in ("bar-hide-fail","framework-stopped"):
+                        assert "mock_power_state stage=after-prepare" in log
+                        assert "framework_policy=cooperative" in log
+                    if mode!="framework-stopped":
+                        assert "mock_status_bar=hide" in log and "mock_status_bar=show" in log
+                    if mode in ("bar-hide-fail","framework-stopped"):
+                        assert "mock_app=started" not in log, "reader launched after failed preparation"
                     if mode in ("normal","fail","stale-pid","stale-boot","legacy-pid"):
-                        assert "mock_power_state stage=before-resume" in log
+                        assert "mock_power_state stage=before-release" in log
                 if mode in ("power", "power-stuck"):
                     assert "power_handoff=launcher grace_seconds=2" in log, "power exit not acknowledged"
                 print(f"launcher_check {profile}/{mode}=ok",flush=True)
@@ -156,7 +191,7 @@ int main(int argc,char** argv) {
                 if runner and runner.poll() is None:
                     runner.kill()
                     runner.wait()
-                for process in (ui, previously_stopped, volume):
+                for process in (ui, wm, previously_stopped, volume):
                     process.kill()
                     process.wait()
 

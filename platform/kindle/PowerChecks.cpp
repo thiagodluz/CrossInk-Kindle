@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "KindlePower.h"
+#include "KindleSystem.h"
 
 namespace {
 unsigned failures = 0;
@@ -22,9 +23,17 @@ int main(int argc, char** argv) {
   using kindle::PowerEvent;
   using kindle::PowerMonitor;
   if (argc != 3) return 2;
+  if (!std::strncmp(argv[2], "bar-", 4)) {
+    const bool visible = std::strstr(argv[2], "show") != nullptr;
+    const bool expected = std::strstr(argv[2], "ok") != nullptr;
+    check(kindle::setStatusBarVisible(visible, argv[1]) == expected, "bounded status bar result");
+    int status;
+    check(waitpid(-1, &status, WNOHANG) == -1 && errno == ECHILD, "status bar helper reaped");
+    return failures ? 1 : 0;
+  }
   if (!std::strncmp(argv[2], "state-", 6)) {
     const bool expected = !std::strcmp(argv[2], "state-ok");
-    check(PowerMonitor::logState("check", argv[1]) == expected, "bounded state query result");
+    check(kindle::logPowerState("check", argv[1]) == expected, "bounded state query result");
     int status;
     check(waitpid(-1, &status, WNOHANG) == -1 && errno == ECHILD, "state helper reaped");
     return failures ? 1 : 0;

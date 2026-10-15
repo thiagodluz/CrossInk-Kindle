@@ -418,3 +418,38 @@ Primary references:
 - https://github.com/bminor/glibc/blob/glibc-2.12.2/sysdeps/unix/grantpt.c
 - https://sourceware.org/legacy-ml/libc-alpha/2010-08/msg00051.html
 - https://sourceware.org/pipermail/glibc-cvs/2020q4/070779.html
+
+
+### 0.3.3 opens, but state remains active — cooperative UI in 0.3.4
+
+The supplied `ui(4).log` validates the NSS-free startup: the TXT opens and page
+3 saves, then normal Exit joins/restores and resumes stock processes. The event
+subscriber receives zero bytes, with no partial line, and all three bounded
+powerd state queries return `active`. This rules out an already-received line
+being lost solely by the parser. It does not prove which framework process or
+hardware interaction prevented the transition.
+
+KOReader's Kindle launcher only SIGSTOPs CVM on sysv and only SIGSTOPs awesome
+on newer firmware; the PW1 upstart path uses the soft Pillow status-bar hide/show
+hook. The 0.3.4 TXT launcher adopts that cooperation: it requires running CVM
+and awesome, leaves them alive, hides the bar, waits for KUAL's final redraws,
+and pauses only volumd. The standalone diagnostic retains its existing pause
+policy. The power subscriber and five-minute session bound remain.
+
+`KindleSystem` owns bounded stock CLI calls for power-state queries and Pillow
+visibility changes. These are invoked in separate single-threaded CLI processes.
+A lock record precedes hide so cleanup/recovery can handle interrupted setup;
+failed hide refuses startup, while failed show preserves the lock for KUAL retry.
+This changes only temporary UI visibility, not power settings or framework jobs.
+
+On a real power event, the render worker saves and joins before the display
+backend relinquishes restoration ownership. Subsequent present/restore/destructor
+calls cannot repaint the captured opening frame over a stock sleep frame. Normal
+exit and helper-failure rollback retain restoration. A syscall-modeled framebuffer
+regression covers both paths; launcher checks verify running framework heartbeats,
+status-bar rollback, retry after failed restoration and already-stopped framework
+refusal. ARM checks still require the legacy sysroot and the NSS symbol guard.
+The new policy needs device validation for events, overlay-free reading, normal
+bar restoration and stock sleep/wake; no hardware fix is claimed in advance.
+
+Primary reference: https://github.com/koreader/koreader/blob/master/platform/kindle/koreader.sh

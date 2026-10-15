@@ -57,6 +57,11 @@ class Display {
   bool open(bool writable);
   bool present(bool full);
   bool restore();
+  // After the worker joins, let stock sleep rendering own the framebuffer.
+  void handoffToSystem() {
+    modified_ = false;
+    handedOff_ = true;
+  }
   const Layout& layout() const { return layout_; }
   uint8_t* pixels() { return pixels_; }
 
@@ -66,7 +71,7 @@ class Display {
   Layout layout_;
   uint8_t *mapping_ = nullptr, *pixels_ = nullptr, *original_ = nullptr;
   uint32_t marker_ = 0;
-  bool modified_ = false;
+  bool modified_ = false, handedOff_ = false;
 };
 
 }  // namespace kindle

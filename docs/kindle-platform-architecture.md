@@ -296,3 +296,49 @@ The next milestone is integrating the original activity lifecycle and required
 FreeRTOS notification semantics, followed by EPUB parsing/layout/cache. Shared
 changes in Memory, GfxRenderer and Txt are gated by CROSSINK_PLATFORM_KINDLE;
 the SDK gitlink and ESP32 implementations remain unchanged.
+
+
+### TXT preview 0.2.1 hardware validation — 2026-10-14
+
+The user's photo shows upright Portuguese text on page 4/5 and aligned page
+controls. UI logs from 20:51 and 20:52 confirm opening, page advance, saving,
+reopening page 2, and reopening page 3 after a new launch. The last normal run
+saved page 4. Both runs exited with code 0, joined the worker, restored the
+framebuffer and resumed volumd, cvm and awesome.
+
+The 20:59:34 run recognized a five-second top-right hold, joined and restored
+normally, then resumed all three services. This tests the gesture path, not a
+blocked render worker. The user separately confirmed Previous and the return to
+the Amazon UI after five minutes. Those two confirmations are user reports,
+without new complete logs. Forced-crash recovery and power behavior remain
+unproven on the device.
+
+### Power-event handoff 0.3.0 — device validation pending
+
+`KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd '*'`
+subscriber. The native input loop consumes bounded lines from a nonblocking pipe
+and recognizes sleep/suspend/wake events independently of renderer ownership.
+A recognized event asks the launcher for a two-second shutdown deadline, stops
+and joins the render worker (which saves progress), restores the display, and
+reaps the subscriber before process exit lets the launcher resume the stock UI.
+Subscriber failure also exits; there is no unmonitored fallback session.
+
+The helper receives Linux PR_SET_PDEATHSIG before exec and verifies its parent,
+so it is killed if the reader is forced to exit. The preflight exercises helper
+startup without display writes or exclusive input capture. No powerd settings,
+sysfs power states or front-light values are written. The five-minute preview
+and six-minute watchdog remain. This phase yields control to Amazon for sleep;
+after waking, launch KUAL again and reopen the TXT to resume. It does not keep a
+live reading session suspended in memory.
+
+References checked for this phase:
+- KOReader's Kindle power lifecycle and event names:
+  https://github.com/koreader/koreader/blob/master/frontend/device/kindle/device.lua
+- KOReader's powerd state handling:
+  https://github.com/koreader/koreader/blob/master/frontend/device/kindle/powerd.lua
+- An open implementation using the stock command and its event-line format:
+  https://github.com/aleung27/kindle-eink-photo-frame
+
+Physical test: save a known TXT page, briefly press power, wake, reopen through
+KUAL and verify the page, controls and stock UI. Supply ui.log and ui.previous.log.
+A new firmware missing the helper should fail preflight before pausing stock UI.

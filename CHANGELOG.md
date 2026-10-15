@@ -1,3 +1,16 @@
+## [Kindle PW1 TXT preview 0.3.0] - 2026-10-14
+
+### Added
+
+- A read-only powerd event subscriber requests a save-and-exit handoff for sleep, suspend and wake events. Reopen CrossInk through KUAL after waking to resume the saved TXT position; in-app suspend/resume is not implemented yet.
+- A two-second launcher deadline covers an unresponsive power handoff. The LIPC helper is reaped during normal exit and receives a parent-death signal if the reader is killed.
+- Native checks cover fragmented/oversized event streams, helper failure/restart, forced reader death and launcher power recovery.
+
+### Changed
+
+- UI probing now checks that the stock LIPC subscriber can start before the launcher pauses the Amazon interface. A missing or failed subscriber ends the session safely without changing power or front-light settings.
+- Recorded device validation of 0.2.1: TXT navigation, reading-position persistence, normal and corner-hold exits, and the five-minute session timeout. The 0.3.0 power integration still requires PW1 validation; the five-minute limit remains.
+
 ## [Kindle PW1 TXT preview 0.2.1] - 2026-10-14
 
 ### Fixed

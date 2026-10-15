@@ -48,7 +48,7 @@ int main(int argc,char** argv) {
  if(!strcmp(argv[1],"--probe")) return getenv("MOCK_PROBE_FAIL") ? 19 : 0;
  if(!strcmp(argv[1],"--diagnostic") || !strcmp(argv[1],"--app")) {
    const char* mode=getenv("MOCK_MODE");
-   if(mode && !strcmp(mode,"stuck")) { signal(SIGTERM,SIG_IGN); for(;;) pause(); }
+   if(mode && (!strcmp(mode,"stuck") || !strcmp(mode,"power-stuck"))) { signal(SIGTERM,SIG_IGN); signal(SIGUSR2,SIG_IGN); for(;;) pause(); }
    if(mode && !strcmp(mode,"wait")) for(;;) pause();
    return mode && !strcmp(mode,"fail") ? 23 : 0;
  }
@@ -57,7 +57,7 @@ int main(int argc,char** argv) {
 ''')
         mock = base / "crossink-pw1"
         subprocess.run(["g++", str(native), "-o", str(mock)], check=True)
-        for profile, mode in itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid")):
+        for profile, mode in itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck")):
             app = base / (profile+"-"+mode)
             binary_name = "crossink-ui" if profile=="ui" else "crossink-pw1"
             arguments = ["--ui"] if profile=="ui" else []
@@ -86,10 +86,10 @@ int main(int argc,char** argv) {
                     (directory / "status").write_text(f"Name:\t{name}\nState:\t{status} (fixture)\n")
                 env = dict(os.environ, CROSSINK_ROOT=str(app), CROSSINK_PROC_ROOT=str(proc),
                            CROSSINK_IDENTITY_PROC_ROOT=str(identities),
-                           MOCK_MODE="stuck" if mode == "emergency" else "wait" if mode in ("interrupt", "recover") else mode)
+                           MOCK_MODE="stuck" if mode == "emergency" else "wait" if mode in ("interrupt", "recover", "power") else mode)
                 if mode == "probe-fail":
                     env["MOCK_PROBE_FAIL"] = "1"
-                if mode in ("stale-pid", "stale-boot", "legacy-pid"):
+                if mode in ("stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck"):
                     lock = app / "state/launch.lock"
                     lock.mkdir(parents=True)
                     (lock / "owner").write_text(str(ui.pid)+"\n")
@@ -105,7 +105,7 @@ int main(int argc,char** argv) {
                     assert ui.poll() is None, "recovery killed unrelated owner PID"
                 runner = subprocess.Popen(["/bin/sh", str(app / "runner.sh"), *arguments], env=env,
                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                if mode in ("interrupt", "recover", "emergency"):
+                if mode in ("interrupt", "recover", "emergency", "power", "power-stuck"):
                     child_file = app / "state/launch.lock/child"
                     wait_for(child_file.exists, "diagnostic not started")
                     pid = int(child_file.read_text().split()[0])
@@ -121,11 +121,13 @@ int main(int argc,char** argv) {
                         runner.terminate()
                     elif mode == "emergency":
                         runner.send_signal(signal.SIGUSR1)
+                    elif mode in ("power", "power-stuck"):
+                        runner.send_signal(signal.SIGUSR2)
                     else:
                         subprocess.run(["/bin/sh", str(app / "runner.sh"), "--recover"],
                                        env=env, check=True, capture_output=True, timeout=6)
                 result = runner.wait(timeout=8)
-                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0}[mode]
+                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0}[mode]
                 assert result == expected, (mode, result, expected, (app / "logs" / (profile+".log")).read_text() if (app / "logs" / (profile+".log")).exists() else "no log")
                 resumed_size = heartbeat.stat().st_size
                 wait_for(lambda: heartbeat.stat().st_size > resumed_size, "UI not resumed")
@@ -139,7 +141,9 @@ int main(int argc,char** argv) {
                 else:
                     assert "paused pid=" in log and "resumed pid=" in log, "handoff missing"
                     assert (f"paused pid={volume.pid} name=volumd" in log) == (profile=="ui"), "USB ownership mismatch"
-                print(f"launcher_check {profile}/{mode}=ok")
+                if mode in ("power", "power-stuck"):
+                    assert "power_handoff=launcher grace_seconds=2" in log, "power exit not acknowledged"
+                print(f"launcher_check {profile}/{mode}=ok",flush=True)
             finally:
                 if runner and runner.poll() is None:
                     runner.kill()

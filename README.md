@@ -19,7 +19,7 @@ This project is independent and is not an official CrossInk or Amazon product. T
 | Reading goal | Explore local book reading; current preview supports TXT |
 | Input | Touchscreen |
 | Display | Kindle e-ink framebuffer |
-| Project status | Experimental proof of concept; TXT preview device test pending |
+| Project status | Experimental proof of concept; basic TXT preview validated on PW1 |
 
 The PW1 is the only target for this experiment. Other Kindle models are not supported unless they are explicitly tested and documented.
 
@@ -30,14 +30,15 @@ The PW1 is the only target for this experiment. Other Kindle models are not supp
 | Kindle environment diagnostics | CPU, ABI, framebuffer and touch recorded from PW1 |
 | Reproducible ARM build | Static kindle5 executable; ELF audited |
 | E-ink display and touch diagnostic | Full/partial updates and touch targets tested on a PW1 |
-| Reading app | Native-renderer TXT preview; its new screen still needs device testing |
+| Reading app | Native-renderer TXT preview; basic reading/navigation validated on PW1 (0.2.1) |
 | EPUB reading | Planned |
-| Reading progress persistence | TXT preview tested locally and under ARM emulation |
-| Front light, battery, suspend and resume | Planned |
+| Reading progress persistence | TXT save/reopen/relaunch validated on PW1 (0.2.1) |
+| Power button / sleep | Save-and-exit handoff implemented in 0.3.0; device validation pending |
+| Front light, battery, in-app suspend/resume | Planned |
 | Wi-Fi, OPDS and progress sync | Planned |
-| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.2.1 |
+| Installable experiment | KUAL diagnostic 0.1.0 and TXT preview 0.3.0 |
 
-The diagnostic has been tested on the device. The 0.2.1 preview has passed host and ARM-emulation checks, but has **not yet been validated on the Kindle**. Do not read the preview version number as a stable release or a claim that the full reader is complete.
+The hardware diagnostic and the basic TXT preview (0.2.1) have been tested on the user's PW1: page controls, progress persistence across launches, normal exit, the corner-hold exit gesture and the five-minute session limit worked. Version 0.3.0 adds a power-event handoff that saves and exits when the Kindle begins to sleep; this new path still needs device validation. The preview remains an experimental proof of concept with no EPUB support.
 
 ## Development plan
 
@@ -72,13 +73,13 @@ Existing Kindle projects such as [FBInk](https://github.com/NiLuJe/FBInk), [KORe
 
 ## Installation
 
-Use the [0.2.1 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
+Use the [0.3.0 TXT preview instructions](./platform/kindle/UI-README.md) to copy the package to a jailbroken PW1 and launch it from KUAL. The package includes a sample TXT and keeps the [hardware diagnostic](./platform/kindle/README.md). Build it with `scripts/kindle/package-ui.py` after initializing the pinned SDK.
 
 The preview requires a real-device test of the new renderer, page controls and saved progress. It is an application package, not firmware; do not flash ESP32 firmware to a Kindle.
 
 ## Contributing
 
-Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.2.1 preview on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
+Development is tracked publicly so device findings, code, and test results are easy to follow. Testing the 0.3.0 power handoff on a PW1 and reporting what works or breaks are especially useful. See the [test instructions](./platform/kindle/UI-README.md) before installing; the preview is still experimental.
 
 When reporting results from a Kindle, remove serial numbers, account information, Wi-Fi credentials, and other personal data from logs.
 

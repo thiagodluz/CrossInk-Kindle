@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.2.1
+# CrossInk PW1 — prévia TXT 0.3.0
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -33,7 +33,8 @@ contra caminhos que escapem dessa pasta de dados.
 
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
-que ele pausou. A recuperação forçada e o tempo limite ainda precisam ser
+que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1. O caminho
+de energia da 0.3.0 e a recuperação de um travamento real ainda precisam ser
 validados no aparelho. Se necessário, use KUAL → CrossInk PW1 →
 **Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
 ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
@@ -47,6 +48,30 @@ encerramento forçado ainda precisam ser validados no PW1.
 
 Não conecte o USB durante a sessão; saia antes.
 
+## Teste do botão liga/desliga — novo na 0.3.0
+
+1. Abra o TXT de exemplo e avance até a página 2.
+2. Pressione e solte o botão liga/desliga uma vez.
+3. O CrossInk deve salvar a página, encerrar e liberar a tela e o toque para o
+   sistema do Kindle. A tela de descanso é responsabilidade da Amazon.
+4. Aguarde alguns segundos e pressione o botão novamente para acordar.
+5. Abra KUAL → CrossInk PW1 → **Abrir CrossInk (previa TXT)**, reabra o mesmo
+   livro e confirme a retomada na página 2.
+6. Saia pelo botão Sair e envie `crossink/logs/ui.log` e `ui.previous.log`.
+
+O CrossInk não permanece aberto durante a suspensão nesta etapa. O monitor
+escuta eventos `powerd` com `/usr/bin/lipc-wait-event`, sem mudar as configurações
+de energia ou da luz frontal. Se o monitor falhar, a sessão termina e devolve
+os recursos ao Kindle. Se o comando estiver ausente, o lançador recusa a abertura
+antes de pausar a interface; envie `crossink/logs/ui.log` nesse caso.
+
+O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
+`reason=power` e das linhas `resumed`. Caso o aplicativo não responda ao pedido de
+saída, o lançador envia encerramento forçado após 2 segundos; a última página
+pode não ter sido salva nesse caso. O auxiliar de eventos é encerrado e aguardado
+na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
+A integração com o firmware real do PW1 ainda precisa deste teste.
+
 ## Arquivos e limites atuais
 
 - Coloque seus TXT e subpastas em `crossink/data/books`.
@@ -57,7 +82,8 @@ Não conecte o USB durante a sessão; saia antes.
 - A posição fica em `crossink/data/progress`, salva ao voltar, sair e durante
   a leitura. Alterar o conteúdo do livro reinicia a posição.
 - Arquivos de outros formatos recebem uma mensagem; EPUB, imagens, ajustes de
-  fonte, biblioteca completa, luz frontal, bateria e suspensão estão pendentes.
+  fonte, biblioteca completa, luz frontal e bateria estão pendentes. A saída
+  para suspensão é experimental; a retomada dentro do próprio app está pendente.
 - A sessão pausa a interface Amazon e, quando presente, o serviço `volumd`.
   Ao sair, somente os processos pausados pela sessão são retomados.
 
@@ -80,4 +106,4 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica, mas a prévia 0.2.1 ainda requer o teste físico descrito acima.
+validam a lógica, mas a integração de energia da 0.3.0 ainda requer o teste físico descrito acima.

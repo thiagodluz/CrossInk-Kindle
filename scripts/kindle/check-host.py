@@ -18,6 +18,10 @@ def main():
     run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
         'platform/kindle/KindleBackends.cpp', 'platform/kindle/BackendChecks.cpp', '-o', backend)
     run(backend)
+    power = output / 'power-checks'
+    run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror',
+        'platform/kindle/KindlePower.cpp', 'platform/kindle/PowerChecks.cpp', '-o', power)
+    run('python3', 'platform/kindle/check-power.py', '--binary', power)
     run('python3', 'platform/kindle/check-launcher.py')
     ui = build(Path(), output / 'ui', ROOT / 'platform/kindle/app/PortApp.cpp', True)
     run('python3', 'platform/kindle/check-ui.py', '--binary', ui)

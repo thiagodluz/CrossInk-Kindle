@@ -9,6 +9,7 @@ CI_LOCK="$CI_ROOT/state/launch.lock"
 CI_CHILD=
 CI_WATCHDOG=
 CI_SESSION=
+CI_EXIT_SIGNAL=TERM
 
 # boot_id and starttime are present on the PW1's 2.6.31 kernel. Never trust a
 # persisted PID alone: both a reboot and PID reuse can give it another owner.
@@ -87,7 +88,7 @@ terminate_child() {
     case "$ci_pid" in ''|*[!0-9]*) return ;; esac
     if [ -n "$ci_started" ] && [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
       if [ "$ci_name" = crossink-pw1 ] || [ "$ci_name" = crossink-ui ]; then
-        kill -TERM "$ci_pid" 2>/dev/null
+        kill -"$CI_EXIT_SIGNAL" "$ci_pid" 2>/dev/null
         sleep 2
         if [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
           case "$ci_name" in crossink-pw1|crossink-ui) kill -KILL "$ci_pid" 2>/dev/null ;; esac
@@ -156,7 +157,7 @@ echo "$$" > "$CI_LOCK/owner"
 : > "$CI_LOCK/paused"
 cleanup() {
   trap - 0
-  trap '' INT TERM USR1
+  trap '' INT TERM USR1 USR2
   [ -n "$CI_CHILD" ] && terminate_child
   resume_ui
   [ -n "$CI_WATCHDOG" ] && kill -TERM "$CI_WATCHDOG" 2>/dev/null
@@ -166,13 +167,14 @@ trap cleanup 0
 trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'echo "Emergency exit requested"; exit 130' USR1
+trap 'CI_EXIT_SIGNAL=USR2; echo "power_handoff=launcher grace_seconds=2"; exit 0' USR2
 trap '' HUP
 
 # Keep the current and previous log for each mode. Sessions are time-bounded.
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.2.1 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.0 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1

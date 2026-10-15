@@ -9,6 +9,8 @@
 
 #include "DiagnosticStrings.h"
 #include "KindleBackends.h"
+#include "KindleSystem.h"
+#include "LauncherSession.h"
 
 namespace {
 volatile sig_atomic_t interrupted = 0;
@@ -179,6 +181,10 @@ int run(bool probe) {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
+  if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
+  if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
+  if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
   setvbuf(stderr, nullptr, _IOLBF, 0);
   std::puts("CrossInk PW1 hardware validation 0.1.0 (not the EPUB reader)");
@@ -186,7 +192,10 @@ int main(int argc, char** argv) {
   if (argc == 3 && std::strcmp(argv[1], "--preview") == 0) return preview(argv[2]);
   if (argc == 3 && std::strcmp(argv[1], "--preview-landscape") == 0) return preview(argv[2], true);
   if (argc == 2 && std::strcmp(argv[1], "--probe") == 0) return run(true);
-  if (argc == 2 && std::strcmp(argv[1], "--diagnostic") == 0) return run(false);
+  if (argc == 2 && std::strcmp(argv[1], "--diagnostic") == 0) {
+    if (!kindle::captureLauncher() || !kindle::registerReader()) return 1;
+    return run(false);
+  }
   std::fprintf(stderr, "usage: %s --version | --probe | --diagnostic | --preview file.pgm\n", argv[0]);
   return 2;
 }

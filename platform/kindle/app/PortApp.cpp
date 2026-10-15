@@ -30,12 +30,21 @@
 #include <vector>
 
 #include "EmergencyExit.h"
+#include "KindlePower.h"
+#include "KindleSystem.h"
+#include "LauncherSession.h"
 #include "RenderWorker.h"
+#include "SessionSupervisor.h"
 
 namespace fui = freeink::ui;
 namespace {
-volatile sig_atomic_t interrupted = 0;
+volatile sig_atomic_t interrupted = 0, powerRequested = 0;
 void interrupt(int) { interrupted = 1; }
+void powerInterrupt(int) {
+  powerRequested = 1;
+  interrupted = 1;
+}
+void requestLauncher(int signal) { kindle::notifyLauncher(signal); }
 constexpr int UI_FONT = 0, READING_FONT = 1, TITLE_FONT = 2, SMALL_FONT = 3;
 constexpr size_t MAX_TEXT_BYTES = 256 * 1024, MAX_TEXT_PAGES = 512, MAX_FILES = 200;
 constexpr fui::ActionId OPEN = 1, BACK = 2, PREV = 3, NEXT = 4, EXIT = 5;
@@ -486,13 +495,26 @@ class PortApp {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
+  if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
-  std::puts("CrossInk PW1 UI preview 0.2.1 (native renderer, FreeInkUI and TXT module)");
+  if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
+  if (argc == 3 && !std::strcmp(argv[1], "--supervise-ui")) return kindle::superviseSession(argv[2]);
+  std::puts("CrossInk PW1 UI preview 0.3.7 (native renderer, FreeInkUI and TXT module)");
+  if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
+  if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::logPowerState(argv[2]) ? 0 : 1;
+  if (argc == 3 && !std::strcmp(argv[1], "--status-bar")) {
+    if (std::strcmp(argv[2], "hide") && std::strcmp(argv[2], "show")) return 2;
+    return kindle::setStatusBarVisible(!std::strcmp(argv[2], "show")) ? 0 : 1;
+  }
   if (argc == 2 && !std::strcmp(argv[1], "--probe")) {
     kindle::Display probe;
     kindle::Input input;
-    return probe.open(false) && input.open(false) ? 0 : 1;
+    kindle::PowerMonitor power;
+    if (!probe.open(false) || !input.open(false) || !power.start()) return 1;
+    usleep(100000);
+    return power.poll() == kindle::PowerEvent::None ? 0 : 1;
   }
   bool preview = false;
   const char* root = "/mnt/us/crossink/data";
@@ -529,9 +551,15 @@ int main(int argc, char** argv) {
     return 1;
   struct sigaction handler{};
   handler.sa_handler = interrupt;
+  handler.sa_flags = SA_RESTART;
   sigemptyset(&handler.sa_mask);
   sigaction(SIGTERM, &handler, nullptr);
   sigaction(SIGINT, &handler, nullptr);
+  handler.sa_handler = powerInterrupt;
+  sigaction(SIGUSR2, &handler, nullptr);
+  kindle::PowerMonitor power;
+  if (!preview && (!kindle::captureLauncher() || !kindle::registerReader())) return 1;
+  if (!preview && !power.start()) return 1;
   if (!preview && !gpio.begin()) return 1;
   if (!display.initialize(preview)) return 1;
   GfxRenderer renderer(display);
@@ -563,28 +591,41 @@ int main(int argc, char** argv) {
     std::printf("preview page=%zu count=%zu\n", app->currentPage() + 1, app->pageCount());
     return saved && !app->failed() ? 0 : 1;
   }
-  kindle::RenderWorker worker(&PortApp::work, app.get());
+  signal(SIGPIPE, SIG_IGN);
+  kindle::SessionHeartbeat inputHeartbeat, renderHeartbeat;
+  if (!inputHeartbeat.begin('I') || !renderHeartbeat.begin('R')) return 1;
+  kindle::RenderWorker worker(&PortApp::work, app.get(), &renderHeartbeat);
   if (!worker.start()) return 1;
-  const unsigned long start = millis();
   uint64_t contactGeneration = 0;
   bool inputError = false;
   kindle::EmergencyExit emergency;
-  while (!interrupted && !app->exited() && millis() - start < 300000) {
+  kindle::UserActivity activity;
+  while (!interrupted && !app->exited()) {
+    if (!inputHeartbeat.pulse()) {
+      inputError = true;
+      break;
+    }
+    const auto event = power.poll();
+    if (event != kindle::PowerEvent::None) {
+      if (event == kindle::PowerEvent::ListenerFailed) inputError = true;
+      powerRequested = 1;
+      display.requestStopPublishing();
+      LOG_INF("UI", "power_handoff=requested event=%d", static_cast<int>(event));
+      requestLauncher(SIGUSR2);
+      // The launcher deadline is armed before waiting for an in-flight ioctl.
+      display.stopPublishing();
+      break;
+    }
     kindle::Touch touch;
     const int result = gpio.poll(touch, 100);
     if (result < 0) {
       inputError = true;
       break;
     }
+    if (result) activity.notify(kindle::monotonicMilliseconds());
     if (emergency.update(result ? &touch : nullptr, millis())) {
       LOG_INF("UI", "Emergency corner hold; requesting launcher recovery");
-      const char* launcher = std::getenv("CROSSINK_LAUNCHER_PID");
-      if (launcher) {
-        char* end = nullptr;
-        const long pid = std::strtol(launcher, &end, 10);
-        // Only the parent launcher may receive our recovery signal.
-        if (end != launcher && !*end && pid > 1 && pid == getppid()) kill(getppid(), SIGUSR1);
-      }
+      requestLauncher(SIGUSR1);
       break;
     }
     if (!result || touch.phase == kindle::Touch::Phase::Move) continue;
@@ -599,8 +640,13 @@ int main(int argc, char** argv) {
       break;
     }
   }
+  if (powerRequested) display.stopPublishing();
   worker.stop();  // Save progress and join before releasing display/storage/font state.
-  const bool restored = display.restore();
-  LOG_INF("UI", "exit joined=yes display_restored=%d interrupted=%d", restored, static_cast<int>(interrupted));
+  const bool yieldForPower = powerRequested && !inputError;
+  if (yieldForPower) display.handoffToSystem();
+  const bool restored = yieldForPower || display.restore();
+  power.stop();
+  LOG_INF("UI", "exit joined=yes display_released=%d interrupted=%d reason=%s", restored, static_cast<int>(interrupted),
+          powerRequested ? "power" : "normal");
   return !inputError && !app->failed() && restored ? 0 : 1;
 }

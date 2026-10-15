@@ -1,0 +1,68 @@
+Thu Oct 15 07:14:44 GMT-3:0100 2026
+launcher=CrossInk PW1 package 0.3.5 mode=ui
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+power_listener=started pid=24540 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+power_listener=stopped reaped=1 lines_received=0 bytes_received=0 partial_bytes=0
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+power_state stage=before-prepare value=active exit=0 timeout=0 truncated=0
+paused pid=1144 name=volumd
+framework=running pid=12742 name=cvm
+framework=running pid=1485 name=awesome
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+status_bar=hide exit=0 timeout=0 truncated=0
+framework_policy=cooperative status_bar=soft-hidden
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+power_state stage=after-prepare value=active exit=0 timeout=0 truncated=0
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+launcher_identity env=24531 ppid=24560 proc_ppid=24560 owner=24531 start=51509759 valid=1
+power_listener=started pid=24562 source=com.lab126.powerd transport=pty events=goingToScreenSaver,outOfScreenSaver,exitingScreenSaver,charging,notCharging,wakeupFromSuspend,readyToSuspend
+touch device=cyttsp xcode=53 range=0:758 ycode=54 range=0:1024 contact_key=1
+display id=mxc_epdc_fb size=758x1024 bpp=8 stride=768 offsets=0,0 rotate=3 memory=4718592
+launcher_identity shell=24531 child=24560 child_start=51510245
+launcher_child name=sh state=S
+[INF] [STO] directory=/books entries=1
+refresh marker=1 mode=full result=ok
+[INF] [UI] frame=1 view=files page=1/1
+[DBG] [UI] touch=down logical=361,182
+[DBG] [UI] touch=up logical=367,175
+[INF] [UI] action=1 value=0
+[INF] [TXT] opened=/books/Boas-vindas.txt bytes=3148 pages=5 resume_page=4
+refresh marker=2 mode=partial result=ok
+[INF] [UI] frame=2 view=txt page=4/5
+[DBG] [UI] touch=down logical=301,975
+[DBG] [UI] touch=up logical=300,975
+[INF] [UI] action=3 value=0
+refresh marker=3 mode=partial result=ok
+[INF] [UI] frame=3 view=txt page=3/5
+[DBG] [UI] touch=down logical=288,953
+[DBG] [UI] touch=up logical=289,953
+[INF] [UI] action=3 value=0
+refresh marker=4 mode=partial result=ok
+[INF] [UI] frame=4 view=txt page=2/5
+[DBG] [UI] touch=down logical=307,958
+[DBG] [UI] touch=up logical=309,958
+[INF] [UI] action=3 value=0
+refresh marker=5 mode=partial result=ok
+[INF] [UI] frame=5 view=txt page=1/5
+[DBG] [UI] touch=down logical=479,954
+[DBG] [UI] touch=up logical=479,950
+[INF] [UI] action=4 value=0
+refresh marker=6 mode=partial result=ok
+[INF] [UI] frame=6 view=txt page=2/5
+[INF] [TXT] progress_saved=yes page=2
+power_raw=goingToScreenSaver 2 
+power_event=goingToScreenSaver 2 
+[INF] [UI] power_handoff=requested event=1
+launcher_signal=12 sent=1 owner=24531 start=51509759
+power_handoff=launcher grace_seconds=2
+[INF] [TXT] progress_saved=yes page=2
+power_listener=stopped reaped=1 lines_received=1 bytes_received=22 partial_bytes=0
+[INF] [UI] exit joined=yes display_released=1 interrupted=0 reason=power
+resumed pid=1144 name=volumd
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+status_bar=show exit=0 timeout=0 truncated=0
+CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)
+display_recovery=skipped power_state=screenSaver

@@ -39,9 +39,9 @@ def main() -> None:
         raise SystemExit("Wrong toolchain: PW1 requires the kindle5 EABI target")
     binary = output / "crossink-pw1"
     flags = ["-std=c++17", "-O2", "-Wall", "-Wextra", "-Werror", "-fno-exceptions", "-fno-rtti",
-             "-mcpu=cortex-a8", "-mfpu=neon", "-mfloat-abi=softfp", "-static",
+             "-mcpu=cortex-a8", "-mfpu=neon", "-mfloat-abi=softfp", "-static", "-pthread", "-D_FILE_OFFSET_BITS=64",
              "-Wl,--hash-style=both", "-Wl,--build-id=sha1", "-Wl,-z,relro"]
-    sources = ["platform/kindle/KindleBackends.cpp", "platform/kindle/Diagnostic.cpp"]
+    sources = ["platform/kindle/KindleBackends.cpp", "platform/kindle/Diagnostic.cpp", "platform/kindle/KindleSystem.cpp", "platform/kindle/LauncherSession.cpp", "platform/kindle/ProcessDescriptors.cpp"]
     objects_dir = output / "diagnostic-objects"
     objects_dir.mkdir(exist_ok=True)
     objects = []
@@ -78,7 +78,8 @@ def main() -> None:
     menu = json.loads((REPO / "kual/crossink/menu.json").read_text())
     menu["items"][0]["items"] = [item for item in menu["items"][0]["items"] if "--ui" not in item.get("params", "")]
     (output / "diagnostic-menu.json").write_text(json.dumps(menu, indent=2) + "\n")
-    config = (REPO / "kual/crossink/config.xml").read_text().replace("0.2.0", "0.1.0")
+    config = re.sub(r"(<version>).*?(</version>)", r"\g<1>0.1.0\2",
+                    (REPO / "kual/crossink/config.xml").read_text())
     (output / "diagnostic-config.xml").write_text(config)
     entries = {
         "crossink/bin/crossink-pw1": binary,
@@ -92,6 +93,7 @@ def main() -> None:
         "crossink/LICENSE": REPO / "LICENSE",
     }
     source_paths = sources + ["platform/kindle/KindleBackends.h", "platform/kindle/DiagnosticStrings.h",
+                             "platform/kindle/KindleSystem.h", "platform/kindle/LauncherSession.h", "platform/kindle/ProcessDescriptors.h",
                              "scripts/kindle/build-package.py", "platform/kindle/BackendChecks.cpp",
                              "platform/kindle/check-launcher.py"]
     manifest = {

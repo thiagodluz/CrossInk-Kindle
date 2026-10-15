@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
 CPP=[
-    "platform/kindle/KindleBackends.cpp", "platform/kindle/NativeCompat.cpp",
+    "platform/kindle/KindleBackends.cpp", "platform/kindle/KindlePower.cpp", "platform/kindle/KindleSystem.cpp", "platform/kindle/LauncherSession.cpp", "platform/kindle/ProcessDescriptors.cpp", "platform/kindle/SessionHeartbeat.cpp", "platform/kindle/SessionSupervisor.cpp", "platform/kindle/NativeCompat.cpp",
     "platform/kindle/NativeDisplay.cpp", "platform/kindle/NativeStorage.cpp",
     "lib/GfxRenderer/GfxRenderer.cpp", "lib/GfxRenderer/Bitmap.cpp",
     "lib/GfxRenderer/BitmapHelpers.cpp", "lib/GfxRenderer/FontCacheManager.cpp",

@@ -1,3 +1,96 @@
+## [Kindle PW1 TXT preview 0.3.7] - 2026-10-15
+
+### Changed
+
+- Allow continuous TXT reading without the five-minute app limit or six-minute UI watchdog. An independent native supervisor watches input/render heartbeats over a nonblocking anonymous pipe; idle reading remains healthy, while a stalled loop triggers session-qualified recovery. The diagnostic keeps its existing timeout.
+- Renew the stock inactivity timer only on real touch input, at most once per 30 seconds, using the bounded `touchScreenSaverTimeout` command. Idle sessions can still sleep, and the power button retains the validated save-and-exit policy; no persistent sleep-prevention flag is set.
+- Cover runner/supervisor death: the runner receives a parent-death signal, and the supervisor restores the recorded session after abnormal runner exit or a bounded cleanup failure. Preserve boot/start/token checks and the explicit lock-release protocol.
+- Update the sample TXT to describe continuous reading. Replacing this sample changes its content hash, so its saved position may reset; other books/progress are preserved when directories are merged.
+
+### Validation
+
+- New controlled tests cover healthy idle sessions, stopped input/render loops, a stopped process, missing startup heartbeats and runner/supervisor death, plus activity-command throttling/failure/deadlines. The physical 0.3.6 evidence remains separate. Version 0.3.7 needs a prolonged PW1 reading and inactivity-sleep retest.
+
+## [Kindle PW1 TXT preview 0.3.6] - 2026-10-15
+
+### Fixed
+
+- Explicitly unlock the inherited operation-lock open-file description before app wait and after recovery. Closing descriptor 9 alone cannot release copies saved by a shell or inherited by helpers. Sanitize descriptors before stock query/subscriber exec, including shell duplicates. A delayed old unlock cannot unlock a replacement operation.
+- Register the actual reader PID/start identity under the operation guard. Forced recovery reaches the native app even when the PW1 shell keeps an intermediary process; terminate a verified wrapper only after handling its reader.
+- Wait up to five seconds for startup/cleanup contention and recover an abandoned session before reopening. Preserve recovery records when a live reader cannot be identified safely.
+- Record KUAL and runner entry before native preflight, including guard failures, so an unsuccessful opening has an earlier diagnostic trail.
+
+### Validation
+
+- Full host suite and 43 launcher scenarios passed, including intermediary shells, reopen after power exit, stale sessions, inherited helper descriptors and reopen during cleanup. ARM power/session/descriptor tests and identical host/ARM TXT pixels passed under QEMU with the legacy sysroot.
+- The 0.3.5 device log confirms the launcher signal now arrives and power save-and-exit succeeds. The user reported reopening failed and launcher.log was empty. Descriptor retention was reproduced locally; the exact failed PW1 launch is not established. The 0.3.6 device logs confirm power save-and-exit, wake/KUAL reopen and normal Exit; the user confirms selecting the book resumes the saved page. The user also confirms corner-hold exit/reopen, five-minute automatic exit/reopen and correct status-bar/sleep-screen appearance. Forced-crash recovery and the six-minute watchdog remain unvalidated on hardware. Restart once after updating to clear descriptors retained by pre-update processes; preserve books/progress.
+
+## [Kindle PW1 TXT preview 0.3.5] - 2026-10-15
+
+### Fixed
+
+- Serialize launcher setup, cleanup and KUAL recovery with a permanent kernel flock, released after the last descriptor referencing its open-file description closes (inherited-copy handling corrected in 0.3.6). Recovery cannot remove partially initialized records; delayed cleanup checks the session token before touching a replacement. Failed journal writes abort before pausing a process or hiding the bar. Cleanup retries transient contention instead of losing restoration.
+- Bind the reader to the launcher's recorded boot/start identity at startup and verify it again before signaling. An intermediary parent or missing PID environment variable no longer invalidates a verified session. Log the environment PID, libc/kernel parent PIDs, owner and child identity for the PW1 retest; never signal a replacement session.
+- Close the display publication gate as soon as a power event arrives, arm launcher recovery, then drain an in-flight publication and join the worker. Queued frames cannot repaint the stock screen during shutdown. An ioctl already executing still needs to complete or be handled by the launcher deadline.
+- Request a bounded Home redraw after failed/forced exits only when powerd is active. Sleeping devices retain their stock screen; unknown state or failed redraw retains recovery records for retry. UI recovery signals a pixel handoff rather than restoring an opening snapshot.
+- Extend the static NSS symbol guard to reject `__nss_lookup_function` as well.
+
+### Added
+
+- Production app-to-launcher signal checks, intermediary/stale-identity checks, controlled setup/recovery races, failed journal writes, cleanup contention and kernel-lock owner death; blocked-ioctl/queued-frame tests; state-aware redraw failure/deadline checks.
+- The five-minute session and six-minute watchdog remain. These changes require a new PW1 test; the successful 0.3.4 physical sleep test remains separate evidence. In-memory suspend/resume and EPUB are not implemented.
+
+## [Kindle PW1 TXT preview 0.3.4] - 2026-10-14
+
+### Changed
+
+- TXT sessions keep the PW1 CVM and window manager running and temporarily hide the stock status bar using the legacy Pillow UI hook. Only volumd is paused for USB ownership. This replaces the previous blanket UI freeze after 0.3.3 opened successfully but still received zero event bytes and observed powerd as active before normal exit.
+- Status-bar commands have a one-second deadline, owned child cleanup and recovery records written before hide. Normal, signal and KUAL recovery restore the bar; a failed restoration retains the lock for retry. A failed hide or already-stopped framework refuses reader startup.
+- When yielding to a received power event, reader cleanup releases framebuffer ownership without restoring the captured opening image over the Amazon sleep screen. Normal exit retains framebuffer restoration.
+
+### Added
+
+- Regression checks for running CVM/WM heartbeats, hide/show failures and recovery retry, bounded Pillow commands, and the survival of a separately painted stock sleep framebuffer through reader cleanup. Physical power-button save-and-exit was validated on 2026-10-14: event received, page 4 saved, worker joined, display released, exit status 0 and stock screenSaver state. The launcher signal was rejected, so its two-second forced-recovery path remains unvalidated; wake/reopen and in-app suspend/resume were not established by this test.
+
+## [Kindle PW1 TXT preview 0.3.3] - 2026-10-14
+
+### Fixed
+
+- Avoid the legacy glibc `grantpt` account/group lookup while preparing the event terminal. On the PW1, 0.3.2 aborted during preflight with a `__getpagesize` assertion, before pausing the Amazon interface. The Linux devpts owner and permissions are now checked directly without changing them or loading NSS modules.
+- Package auditing now rejects account/NSS lookup symbols in the unstripped static PW1 UI binary: the absence of ELF shared dependencies alone did not prevent this runtime failure.
+
+### Changed
+
+- ARM power checks can run with `--qemu` and `--sysroot`, exercising the availability of legacy shared libraries and checking that the reader does not load NSS/libc through them. The 0.3.2 monitor crashes with those libraries available; the corrected monitor passes. Actual opening and power handoff still require a PW1 retest.
+
+## [Kindle PW1 TXT preview 0.3.2] - 2026-10-14
+
+### Changed
+
+- Route the stock power-event helper through a raw pseudoterminal to allow immediate line-buffered delivery. A new regression test reproduces an unflushed event that stays buffered with a pipe; this does not yet establish the cause on the PW1.
+- Record bounded read-only powerd state snapshots before/after pausing the stock UI and before resuming it on normal exit. State-query failure or timeout cannot block launcher recovery indefinitely. Event diagnostics also include byte and partial-line counts.
+- Recorded the failed 0.3.1 device test: the listener received zero complete lines, and normal exit resumed the Amazon processes. Named subscriptions alone did not resolve the problem. Hardware retest remains required.
+
+## [Kindle PW1 TXT preview 0.3.1] - 2026-10-14
+
+### Changed
+
+- Replaced the wildcard power-event subscription with KOReader's explicit stock CLI event list for legacy Kindle compatibility.
+- Log each received LIPC line and the total received before helper shutdown. The 0.3.0 device test did not react to the power button and stock sleep appeared immediately after normal exit; its root cause is still unconfirmed, and this version requires a new device log.
+
+## [Kindle PW1 TXT preview 0.3.0] - 2026-10-14
+
+### Added
+
+- A read-only powerd event subscriber requests a save-and-exit handoff for sleep, suspend and wake events. Reopen CrossInk through KUAL after waking to resume the saved TXT position; in-app suspend/resume is not implemented yet.
+- A two-second launcher deadline covers an unresponsive power handoff. The LIPC helper is reaped during normal exit and receives a parent-death signal if the reader is killed.
+- Native checks cover fragmented/oversized event streams, helper failure/restart, forced reader death and launcher power recovery.
+
+### Changed
+
+- UI probing now checks that the stock LIPC subscriber can start before the launcher pauses the Amazon interface. A missing or failed subscriber ends the session safely without changing power or front-light settings.
+- Recorded device validation of 0.2.1: TXT navigation, reading-position persistence, normal and corner-hold exits, and the five-minute session timeout. The 0.3.0 power integration still requires PW1 validation; the five-minute limit remains.
+
 ## [Kindle PW1 TXT preview 0.2.1] - 2026-10-14
 
 ### Fixed

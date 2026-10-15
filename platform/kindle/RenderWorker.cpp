@@ -5,7 +5,8 @@
 #include "compat/Logging.h"
 
 namespace kindle {
-RenderWorker::RenderWorker(Handler handler, void* context) : handler_(handler), context_(context) {
+RenderWorker::RenderWorker(Handler handler, void* context, SessionHeartbeat* heartbeat)
+    : handler_(handler), context_(context), heartbeat_(heartbeat) {
   pthread_condattr_t attributes;
   if (pthread_condattr_init(&attributes) != 0) return;
   if (pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC) == 0)
@@ -55,7 +56,7 @@ void* RenderWorker::entry(void* context) {
 }
 void RenderWorker::loop() {
   handler_(UiJob{UiJob::Kind::Start}, context_);
-  while (true) {
+  while (!heartbeat_ || heartbeat_->pulse()) {
     pthread_mutex_lock(&mutex_);
     while (!count_ && !stopping_) {
       timespec until{};

@@ -296,3 +296,325 @@ The next milestone is integrating the original activity lifecycle and required
 FreeRTOS notification semantics, followed by EPUB parsing/layout/cache. Shared
 changes in Memory, GfxRenderer and Txt are gated by CROSSINK_PLATFORM_KINDLE;
 the SDK gitlink and ESP32 implementations remain unchanged.
+
+
+### TXT preview 0.2.1 hardware validation — 2026-10-14
+
+The user's photo shows upright Portuguese text on page 4/5 and aligned page
+controls. UI logs from 20:51 and 20:52 confirm opening, page advance, saving,
+reopening page 2, and reopening page 3 after a new launch. The last normal run
+saved page 4. Both runs exited with code 0, joined the worker, restored the
+framebuffer and resumed volumd, cvm and awesome.
+
+The 20:59:34 run recognized a five-second top-right hold, joined and restored
+normally, then resumed all three services. This tests the gesture path, not a
+blocked render worker. The user separately confirmed Previous and the return to
+the Amazon UI after five minutes. Those two confirmations are user reports,
+without new complete logs. Forced-crash recovery and power behavior remain
+unproven on the device.
+
+### Power-event handoff 0.3.x — initial implementation and earlier device failures
+
+`KindlePower` owns a read-only `lipc-wait-event -m -s 0 com.lab126.powerd <explicit-event-list>`
+subscriber. The native input loop consumes bounded lines from a nonblocking terminal
+and recognizes sleep/suspend/wake events independently of renderer ownership.
+A recognized event asks the launcher for a two-second shutdown deadline, stops
+and joins the render worker (which saves progress), restores the display, and
+reaps the subscriber before process exit lets the launcher resume the stock UI.
+Subscriber failure also exits; there is no unmonitored fallback session.
+
+The helper receives Linux PR_SET_PDEATHSIG before exec and verifies its parent,
+so it is killed if the reader is forced to exit. The preflight exercises helper
+startup without display writes or exclusive input capture. No powerd settings,
+sysfs power states or front-light values are written. The five-minute preview
+and six-minute watchdog remain. This phase yields control to Amazon for sleep;
+after waking, launch KUAL again and reopen the TXT to resume. It does not keep a
+live reading session suspended in memory.
+
+References checked for this phase:
+- KOReader's Kindle power lifecycle and event names:
+  https://github.com/koreader/koreader/blob/master/frontend/device/kindle/device.lua
+- KOReader's powerd state handling:
+  https://github.com/koreader/koreader/blob/master/frontend/device/kindle/powerd.lua
+- An open implementation using the stock command and its event-line format:
+  https://github.com/aleung27/kindle-eink-photo-frame
+
+Physical test: save a known TXT page, briefly press power, wake, reopen through
+KUAL and verify the page, controls and stock UI. Supply ui.log and ui.previous.log.
+A new firmware missing the helper should fail preflight before pausing stock UI.
+
+### Power button did not react on 0.3.0 — 2026-10-14
+
+The user reported that briefly pressing power had no visible effect, then that
+the Kindle entered sleep immediately after leaving CrossInk. The supplied
+`ui(1).log` shows both subscriber startups, no recognized power event or helper
+failure, and a normal Exit followed by resumption of volumd/cvm/awesome. This
+suggests a pending stock sleep transition while the UI is paused; it does not
+prove whether the subscription missed an event or the stock event was delayed.
+The 0.3.1 subscriber replaces `*` with the exact explicit event list used by
+KOReader's `input/input-kindle.h`, and logs every complete raw event and the
+received-line count. This addresses a compatibility difference and improves
+observability; it is not proof that the hardware failure is fixed.
+
+Primary reference: https://github.com/koreader/koreader-base/blob/master/input/input-kindle.h
+
+
+### No event lines on 0.3.1 — terminal transport in 0.3.2
+
+The user's `ui(2).log` identifies 0.3.1, both explicit subscriber startups and
+`lines_received=0` at normal shutdown. Thus named subscriptions did not resolve
+the device failure. The log cannot establish whether the stock helper buffered
+its output or the paused framework delayed event publication.
+
+A local reproduction using an unflushed stdout line receives nothing through a
+pipe but delivers promptly through a terminal. The 0.3.2 backend gives the stock
+helper a raw POSIX pseudoterminal so default terminal line buffering can flush
+an event immediately. This is a tested transport fix, not proof of the PW1 root
+cause. It retains nonblocking reads, bounded parsing and owned helper cleanup.
+No controlling terminal is assigned and stderr remains in the session log.
+
+For the next hardware test, the launcher logs read-only powerd `state` before
+pausing stock processes, after pausing them and before resuming on normal exit.
+The native query has a one-second monotonic deadline, bounded output and child
+reaping, and is only run in separate single-threaded processes. These snapshots
+can distinguish a powerd state transition without received event lines from an
+unchanged state. Queries do not write properties or change the stock pause policy.
+The event counters additionally distinguish zero bytes from an incomplete line.
+
+References: KOReader `frontend/device/kindle/powerd.lua:getPowerdState`,
+https://man7.org/linux/man-pages/man3/posix_openpt.3.html and
+https://www.gnu.org/software/libc/manual/html_node/Buffering-Concepts.html.
+
+
+### 0.3.2 preflight abort — NSS-free PTY preparation in 0.3.3
+
+The supplied `ui(3).log` shows version 0.3.2 passing display and touch identity
+checks, then aborting on `__getpagesize`'s `_rtld_global_ro._dl_pagesize != 0`
+assertion. There is no `paused` line: the stock UI was never stopped by this run.
+
+The newly introduced `grantpt` in glibc 2.12 resolves the `tty` group through
+`__getgrnam_r`, bringing the NSS loader into the static binary. Static glibc
+programs can load shared NSS modules and the system's shared libc/loader; the
+upstream glibc discussion documents exactly this page-size assertion in that
+path. The 0.3.2 binary includes grantpt/group/NSS symbols; 0.3.1 did not.
+
+The 0.3.3 backend keeps the terminal transport, omits grantpt on this Linux
+backend and verifies the devpts slave's character-device type, effective owner,
+owner read/write bits and absence of group-read/other access. It refuses an
+unexpected configuration without chmod/chown, consulting group names or
+modifying system libraries. Unlock/name/termios operations remain. The supplied
+PW1 mount report records devpts with gid=5 and mode=620.
+
+Regression evidence: the old ARM monitor works under QEMU without target shared
+libraries, but crashes with `-L <kindle5-sysroot>`. The trace opens nsswitch.conf,
+libnss_files.so.2, libc.so.6 and ld-linux.so.3 before SIGSEGV. This reproduces a
+legacy loading failure, not the exact on-device assertion. The corrected ARM
+monitor passes in that same environment, with none of those shared libraries
+opened. `check-power.py --qemu ... --sysroot ...` now exercises this case, and
+UI release auditing rejects account/NSS symbols before stripping the executable.
+These checks do not replace a hardware opening/power-button retest.
+
+Primary references:
+- https://github.com/bminor/glibc/blob/glibc-2.12.2/sysdeps/unix/grantpt.c
+- https://sourceware.org/legacy-ml/libc-alpha/2010-08/msg00051.html
+- https://sourceware.org/pipermail/glibc-cvs/2020q4/070779.html
+
+
+### 0.3.3 opens, but state remains active — cooperative UI in 0.3.4
+
+The supplied `ui(4).log` validates the NSS-free startup: the TXT opens and page
+3 saves, then normal Exit joins/restores and resumes stock processes. The event
+subscriber receives zero bytes, with no partial line, and all three bounded
+powerd state queries return `active`. This rules out an already-received line
+being lost solely by the parser. It does not prove which framework process or
+hardware interaction prevented the transition.
+
+KOReader's Kindle launcher only SIGSTOPs CVM on sysv and only SIGSTOPs awesome
+on newer firmware; the PW1 upstart path uses the soft Pillow status-bar hide/show
+hook. The 0.3.4 TXT launcher adopts that cooperation: it requires running CVM
+and awesome, leaves them alive, hides the bar, waits for KUAL's final redraws,
+and pauses only volumd. The standalone diagnostic retains its existing pause
+policy. The power subscriber and five-minute session bound remain.
+
+`KindleSystem` owns bounded stock CLI calls for power-state queries and Pillow
+visibility changes. These are invoked in separate single-threaded CLI processes.
+A lock record precedes hide so cleanup/recovery can handle interrupted setup;
+failed hide refuses startup, while failed show preserves the lock for KUAL retry.
+This changes only temporary UI visibility, not power settings or framework jobs.
+
+On a real power event, the render worker saves and joins before the display
+backend relinquishes restoration ownership. Subsequent present/restore/destructor
+calls cannot repaint the captured opening frame over a stock sleep frame. Normal
+exit and helper-failure rollback retain restoration. A syscall-modeled framebuffer
+regression covers both paths; launcher checks verify running framework heartbeats,
+status-bar rollback, retry after failed restoration and already-stopped framework
+refusal. ARM checks still require the legacy sysroot and the NSS symbol guard.
+The subsequent device test below validates event-driven save-and-exit. Visual
+overlay behavior, normal Exit bar restoration, wake/reopen and forced recovery
+remain outside that test's established evidence.
+
+Primary reference: https://github.com/koreader/koreader/blob/master/platform/kindle/koreader.sh
+
+
+### 0.3.4 power-button device validation — 2026-10-14
+
+The user reported that the power button worked. The supplied `ui(5).log` is
+preserved byte-for-byte as [pw1-0.3.4-power-ui.txt](validation/pw1-0.3.4-power-ui.txt),
+SHA-256 `a0df8983125914836917aeb2393078f71391366a95b367a0c57a19dd2997467c`.
+Its header identifies package 0.3.4 and device time 22:46:41 on 2026-10-14;
+the unusual timezone suffix is retained as emitted by the device.
+
+| Observation | Evidence | Conclusion |
+| --- | --- | --- |
+| Stock framework remains active | `framework=running` for CVM/awesome; `framework_policy=cooperative` | Cooperative launch path exercised |
+| Power-button transition | `power_event=goingToScreenSaver 2` | One recognized power event received |
+| TXT progress | Opens at page 3, advances to 4, `progress_saved=yes page=4` | Page 4 saved during the power exit |
+| Reader cleanup | `exit joined=yes display_released=1 interrupted=0 reason=power`; `exit_status=0` | Worker joined and framebuffer ownership released without an application error |
+| Stock state and cleanup | `before-release value=screenSaver`; `resumed ... volumd`; `status_bar=show exit=0` | Stock screenSaver state observed; paused process resumed and bar restoration command succeeded |
+| Launcher recovery request | `No matching parent launcher for signal=12` | Launcher notification rejected; two-second forced-recovery handshake not activated in this run |
+
+This is a successful cooperative save-and-exit test, not an in-memory
+suspend/resume test. The signal failure did not prevent normal shutdown, but
+must remain tracked as an unresolved recovery defect. This run does not validate
+wake/reopen at page 4, forced cleanup of a blocked reader, absence of visual bar
+overlays, or restoration after a separate normal Exit action. Earlier 0.2.1
+progress/normal-exit validation remains separate evidence.
+
+
+### 0.3.5 lifecycle recovery corrections
+
+`LauncherSession` acquires a kernel flock on the permanent
+`state/operation.lock` inode and execs the shell with descriptor 9. The runner
+verifies that descriptor before entering a guarded phase. Setup, cleanup,
+Restore and token-qualified watchdog recovery share that lock. The app and
+watchdog close descriptor 9 before exec, and the runner releases it before
+waiting for the reader. The lock releases only when the last descriptor for its
+open-file description closes; 0.3.6 corrects inherited-copy handling. Never unlink
+operation.lock: doing so could create two independently locked inodes.
+
+A Restore during setup refuses with status 75. Cleanup instead retries brief
+contention for up to ten seconds; a duplicate launch cannot silently consume
+cleanup. Recorded boot/start session tokens prevent an old cleanup or watchdog
+from acting on a replacement session. Journal writes are checked before STOP,
+bar hide and reader handoff. Incomplete child-record publication also has a
+direct-child termination fallback before the runner releases setup.
+
+The reader captures the recorded launcher owner at startup and validates boot
+and process start again before signaling. It does not depend on direct
+parenthood or a PID environment variable, and it cannot bind later to a new
+owner. The production notifier is exercised through the real runner in the
+host harness, using isolated proc identities where the execution host exposes
+a different PID namespace. Separate native checks exercise an intermediary
+process and stale boot/start records. Device logs include libc/kernel parent
+PIDs, environment PID and the verified owner, without weakening PID-reuse checks.
+
+On a received power event, an atomic publication gate closes before notifying
+the launcher. The independent deadline is armed before draining a publication
+already executing and joining the render worker. The gate prevents pending
+frames from reaching the mapped framebuffer; post-join handoff still suppresses
+snapshot restoration. An ioctl already submitted cannot be cancelled by the
+gate. The concurrent framebuffer test blocks that ioctl, verifies the drain,
+then paints stock pixels and verifies that pending publication/destruction do
+not overwrite them. This is controlled evidence, not a PW1 rendering claim.
+
+Failed/forced cleanup resumes owned processes, restores the status bar and uses
+bounded stock commands to request Home only when powerd reports active. Sleep
+states skip Home; unknown state or command failure retains records for retry.
+UI Restore sends the handoff signal so an already-sleeping device does not get
+an opening snapshot repainted by SIGTERM cleanup. The 0.3.4 Pillow show-during-
+sleep visual question still needs device observation.
+
+The five-minute session bound and six-minute watchdog remain. Revalidate power,
+wake/reopen, normal Exit, corner hold and the session timeout on the PW1;
+0.2.1 exit validation and 0.3.4 power validation do not prove these new paths.
+
+Automated validation and its limits: [0.3.5 checks](validation/pw1-0.3.5-checks.md).
+
+### 0.3.5 device evidence and 0.3.6 reopen corrections — 2026-10-15
+
+The user's `ui(6).log` is preserved byte-for-byte as
+[pw1-0.3.5-power-ui.txt](validation/pw1-0.3.5-power-ui.txt), SHA-256
+`1647b09466f7204c624bcd25ee3b3348f05e4191ca2e3842b7a61974175afca5`.
+It confirms launcher owner 24531 and intermediary `sh` 24560, successful native
+notification (`launcher_signal=12 sent=1`), page 2 saved, power handoff, reader
+exit, volumd resumption, successful bar show and skipped Home while screenSaver.
+The user reports opening/sleep succeeded but reopening failed; launcher.log was
+empty. No failed-launch trace was supplied. The previous-log attachment was
+0.3.4 evidence, not a second 0.3.5 launch. Forced recovery of a stuck native reader
+and visual status-bar behavior remain unvalidated on hardware.
+
+A controlled reproduction using the 0.3.5 production stock-command path showed
+a helper descendant could inherit the operation flock, outlive its direct
+parent and leave a subsequent guard attempt returning 75. This proves a local
+defect; it does not establish the exact failed PW1 opening stage.
+
+0.3.6 explicitly issues LOCK_UN on the inherited open-file description before
+waiting and at guarded exits. It never reacquires as part of unlock, so a delayed
+old unlock cannot affect a replacement operation. Before exec, stock query and
+subscriber children close all descriptors above stderr, except the subscriber's
+CLOEXEC error pipe. Raw bounded getdents64 avoids allocation between fork/exec
+and includes any legacy-shell duplicates, not just fd 9.
+
+The native reader registers its own PID/start identity under the operation guard
+before acquiring device resources. Recovery prefers this identity over `$!`,
+which was a shell on the PW1. A verified sh/ash wrapper can then be terminated;
+unrecognized live identities retain recovery records. Startup waits up to five
+seconds for cleanup and automatically recovers an abandoned session under the
+same permanent guard. KUAL/runner log entry now precedes native preflight.
+
+Restart once after installing over 0.3.5 to discard descriptors retained by old
+processes; do not delete the permanent lock inode or reading data. Host and ARM
+checks are documented in [0.3.6 checks](validation/pw1-0.3.6-checks.md).
+The subsequent 0.3.6 physical test confirms power/wake/KUAL reopen and normal
+Exit; the user confirms selecting the book resumes its saved page. The three
+logs, hashes, chronology and distinction between log evidence and user
+observation are recorded in [0.3.6 checks](validation/pw1-0.3.6-checks.md#physical-036-result).
+Startup at the file list is expected. The user subsequently confirmed corner
+exit/reopen, five-minute timeout/reopen and correct bar/sleep appearance in
+the requested test. These are user observations without new logs/photos; they
+do not prove forced-kill recovery or the six-minute watchdog on hardware.
+Session/watchdog limits remain five/six minutes
+and the app still saves and exits for stock sleep.
+
+
+### 0.3.7 continuous TXT sessions — physical retest pending
+
+The UI no longer exits after five minutes and no longer starts the six-minute
+shell watchdog. `SessionSupervisor` runs before stock preparation, owns the
+runner child and reads an anonymous nonblocking pipe. The input loop and
+RenderWorker each write a distinct one-byte heartbeat at most once a second.
+The worker ticks while idle and pulses from its own loop; a separate timer
+thread cannot conceal a blocked renderer. There are no heartbeat filesystem
+writes, persisted heartbeat paths or wall-clock comparisons.
+
+Both channels must start within 60 seconds. After the first pulse, input has a
+15-second deadline and rendering a 30-second deadline. Heartbeats represent
+loop execution, not page turns: a stationary page is healthy. On timeout the
+supervisor sends ALRM/CONT to its owned runner; the runner yields pixels and
+applies the existing two-second reader-exit policy. Cleanup has ten seconds,
+then the owned runner can be killed/reaped and a bounded token-qualified
+recovery attempted under the permanent operation guard. The token is captured
+only for the supervisor's own child boot/start identity and never rebound.
+Abnormal runner death also invokes recovery. Supervisor death sends TERM to the
+runner via PR_SET_PDEATHSIG; explicit KUAL signals are relayed to the runner.
+The diagnostic retains its existing 90-second app/120-second watchdog bounds.
+
+The pipe uses fixed bounded state and no new thread. It adds one native
+supervisor process and kernel pipe storage; actual PW1 memory/battery cost is
+not yet measured. Stock helper execs close the heartbeat descriptor with other
+inherited descriptors. A pipe-write failure ends the reader instead of silently
+running unsupervised. Existing render/storage ownership and SDK pin are intact.
+
+Real touches request `lipc-set-prop -i com.lab126.powerd
+ touchScreenSaverTimeout 1`, limited to once per 30 seconds with a one-second
+command deadline. This follows KOReader's `resetT1Timeout` in
+[powerd.lua](https://github.com/koreader/koreader/blob/master/frontend/device/kindle/powerd.lua)
+(observed blob `011d77ab72bc28762758ccc50bcfbaaa183e3a07`). No heartbeat renews
+inactivity and no preventScreenSaver flag is set. Idle sleep and the physical
+power button remain stock policy; property support and active-reading behavior
+need a prolonged PW1 test. A failed reset is logged and throttled, leaving the
+validated save-and-exit path available.
+
+The updated sample TXT changes its content identity and may reset that sample's
+position. Physical 0.3.6 evidence does not prove the new supervisor; see
+[0.3.7 checks](validation/pw1-0.3.7-checks.md).

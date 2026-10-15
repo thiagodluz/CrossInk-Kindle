@@ -51,9 +51,14 @@ esac
         holder.wait(timeout=3)
         cleanup.wait(timeout=3)
         assert cleanup.returncode==0, 'cleanup did not retry transient contention'
+        holder.stdin.close()
         # Acquire again and verify that SIGKILL releases the same lock inode.
+        (root/'ready').unlink()
         holder = subprocess.Popen([*guard,'--hold'],env=env,stdin=subprocess.PIPE)
-        time.sleep(.2)
+        deadline = time.monotonic()+5
+        while not (root/'ready').exists():
+            assert time.monotonic()<deadline, 'second lock holder did not start'
+            time.sleep(.01)
         blocked = subprocess.run([*guard,'--touch'],env=env,capture_output=True,timeout=3)
         assert blocked.returncode==75
         holder.kill()

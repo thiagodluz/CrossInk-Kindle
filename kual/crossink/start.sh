@@ -11,6 +11,10 @@ if [ ! -f "$CI_ROOT/runner.sh" ] || [ ! -x "$CI_ROOT/bin/$ci_binary" ]; then
   echo 'ERROR CrossInk package incomplete' >> "$CI_ROOT/logs/launcher.log"
   exit 1
 fi
+{
+  date
+  echo "kual_launch mode=${ci_mode:-diagnostic} package=0.3.6"
+} >> "$CI_ROOT/logs/launcher.log" 2>&1
 # KUAL is free to close before the validation program takes over the screen.
 # HUP is ignored by the detached runner; it manages UI cooperation/recovery.
 (

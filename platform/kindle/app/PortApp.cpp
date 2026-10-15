@@ -494,10 +494,11 @@ class PortApp {
 }  // namespace
 
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
   setvbuf(stdout, nullptr, _IOLBF, 0);
   if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
-  std::puts("CrossInk PW1 UI preview 0.3.5 (native renderer, FreeInkUI and TXT module)");
+  std::puts("CrossInk PW1 UI preview 0.3.6 (native renderer, FreeInkUI and TXT module)");
   if (argc == 2 && !std::strcmp(argv[1], "--recover-display")) return kindle::recoverDisplay() ? 0 : 1;
   if (argc == 2 && !std::strcmp(argv[1], "--version")) return 0;
   if (argc == 3 && !std::strcmp(argv[1], "--power-state")) return kindle::logPowerState(argv[2]) ? 0 : 1;
@@ -555,7 +556,7 @@ int main(int argc, char** argv) {
   handler.sa_handler = powerInterrupt;
   sigaction(SIGUSR2, &handler, nullptr);
   kindle::PowerMonitor power;
-  if (!preview && !kindle::captureLauncher()) return 1;
+  if (!preview && (!kindle::captureLauncher() || !kindle::registerReader())) return 1;
   if (!preview && !power.start()) return 1;
   if (!preview && !gpio.begin()) return 1;
   if (!display.initialize(preview)) return 1;

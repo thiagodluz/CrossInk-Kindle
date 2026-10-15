@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check the production notifier and kernel lock, including owner death."""
 import argparse
+import fcntl
 import os
 import subprocess
 import tempfile
@@ -67,6 +68,40 @@ esac
         assert (root/'changed').read_text().strip() == 'changed'
         assert (root/'state/operation.lock').stat().st_ino == inode, 'lock inode replaced'
         print('session_check serialization-and-owner-death=ok', flush=True)
+
+        # Explicit unlock must release inherited copies, but a delayed unlock
+        # through that old open-file description must leave a new owner alone.
+        (root/'ready').unlink()
+        previous_nine = None
+        try:
+            previous_nine = fcntl.fcntl(9, fcntl.F_DUPFD_CLOEXEC, 10)
+        except OSError:
+            pass
+        descriptor = os.open(root/'state/operation.lock', os.O_RDWR)
+        try:
+            if descriptor != 9:
+                os.dup2(descriptor, 9)
+                os.close(descriptor)
+            fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            subprocess.run([*launch, '--session-unlock'], env=env, pass_fds=(9,), check=True, timeout=3)
+            holder = subprocess.Popen([*guard,'--hold'],env=env,stdin=subprocess.PIPE)
+            deadline = time.monotonic()+5
+            while not (root/'ready').exists():
+                assert time.monotonic()<deadline, 'explicit unlock left inherited copies locked'
+                time.sleep(.01)
+            subprocess.run([*launch, '--session-unlock'], env=env, pass_fds=(9,), check=True, timeout=3)
+            blocked = subprocess.run([*guard,'--touch'],env=env,capture_output=True,timeout=3)
+            assert blocked.returncode==75, 'delayed old unlock released a replacement operation'
+            holder.stdin.write(b'release\n')
+            holder.stdin.flush()
+            holder.wait(timeout=3)
+            assert holder.returncode==0
+            print('session_check inherited-unlock-and-replacement-isolation=ok', flush=True)
+        finally:
+            os.close(9)
+            if previous_nine is not None:
+                os.dup2(previous_nine, 9)
+                os.close(previous_nine)
     finally:
         if holder.poll() is None:
             holder.kill()

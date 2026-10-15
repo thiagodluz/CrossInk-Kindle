@@ -13,6 +13,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "ProcessDescriptors.h"
+
 namespace kindle {
 namespace {
 bool closeOnExec(int fd) { return fcntl(fd, F_SETFD, FD_CLOEXEC) == 0; }
@@ -41,7 +43,7 @@ Result run(const char* command, const char* const* arguments) {
     close(output[0]);
     if (prctl(PR_SET_PDEATHSIG, SIGKILL) == 0 && getppid() == parent && dup2(output[1], STDOUT_FILENO) >= 0) {
       close(output[1]);
-      execve(command, const_cast<char* const*>(arguments), environ);
+      if (closeInheritedDescriptors()) execve(command, const_cast<char* const*>(arguments), environ);
     }
     _exit(127);
   }

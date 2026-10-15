@@ -41,7 +41,7 @@ def main() -> None:
     flags = ["-std=c++17", "-O2", "-Wall", "-Wextra", "-Werror", "-fno-exceptions", "-fno-rtti",
              "-mcpu=cortex-a8", "-mfpu=neon", "-mfloat-abi=softfp", "-static", "-pthread", "-D_FILE_OFFSET_BITS=64",
              "-Wl,--hash-style=both", "-Wl,--build-id=sha1", "-Wl,-z,relro"]
-    sources = ["platform/kindle/KindleBackends.cpp", "platform/kindle/Diagnostic.cpp", "platform/kindle/KindleSystem.cpp", "platform/kindle/LauncherSession.cpp"]
+    sources = ["platform/kindle/KindleBackends.cpp", "platform/kindle/Diagnostic.cpp", "platform/kindle/KindleSystem.cpp", "platform/kindle/LauncherSession.cpp", "platform/kindle/ProcessDescriptors.cpp"]
     objects_dir = output / "diagnostic-objects"
     objects_dir.mkdir(exist_ok=True)
     objects = []
@@ -93,7 +93,7 @@ def main() -> None:
         "crossink/LICENSE": REPO / "LICENSE",
     }
     source_paths = sources + ["platform/kindle/KindleBackends.h", "platform/kindle/DiagnosticStrings.h",
-                             "platform/kindle/KindleSystem.h", "platform/kindle/LauncherSession.h",
+                             "platform/kindle/KindleSystem.h", "platform/kindle/LauncherSession.h", "platform/kindle/ProcessDescriptors.h",
                              "scripts/kindle/build-package.py", "platform/kindle/BackendChecks.cpp",
                              "platform/kindle/check-launcher.py"]
     manifest = {

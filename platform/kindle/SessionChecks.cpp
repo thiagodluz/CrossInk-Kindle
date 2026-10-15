@@ -1,4 +1,6 @@
+#include <fcntl.h>
 #include <signal.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -22,6 +24,7 @@ void write(const std::string& path, const std::string& value) {
 }
 }  // namespace
 int main(int argc, char** argv) {
+  if (argc == 2 && !std::strcmp(argv[1], "--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
   if (argc >= 3 && !std::strcmp(argv[1], "--session-guard")) return kindle::guardSession(argv[2], argc - 3, argv + 3);
   const char* root = std::getenv("CROSSINK_ROOT");
   if (argc != 2 || std::strcmp(argv[1], "--notify-test") || !root) return 2;
@@ -41,6 +44,14 @@ int main(int argc, char** argv) {
   write(lock + "owner", std::to_string(getpid()));
   write(lock + "identity", boot + " " + std::to_string(start));
   if (!kindle::captureLauncher(proc.c_str())) return 1;
+  const int guard = open((std::string(root) + "/state/operation.lock").c_str(), O_CREAT | O_RDWR, 0600);
+  if (guard < 0) return 1;
+  close(guard);
+  if (!kindle::registerReader(proc.c_str())) return 1;
+  long recordedPid = -1;
+  unsigned long long recordedStart = 0;
+  std::ifstream(lock + "reader") >> recordedPid >> recordedStart;
+  if (recordedPid != getpid() || recordedStart != start) return 1;
   struct sigaction action{};
   action.sa_handler = signalReceived;
   sigemptyset(&action.sa_mask);
@@ -75,8 +86,8 @@ int main(int argc, char** argv) {
   }
   write(replacementDirectory + "/stat", stat);
   write(lock + "owner", std::to_string(replacement));
-  const bool replacementRejected =
-      !kindle::notifyLauncher(SIGUSR1, proc.c_str()) && !kindle::captureLauncher(proc.c_str());
+  const bool replacementRejected = !kindle::notifyLauncher(SIGUSR1, proc.c_str()) &&
+                                   !kindle::captureLauncher(proc.c_str()) && !kindle::registerReader(proc.c_str());
   kill(replacement, SIGKILL);
   waitpid(replacement, nullptr, 0);
   if (!replacementRejected) return 1;

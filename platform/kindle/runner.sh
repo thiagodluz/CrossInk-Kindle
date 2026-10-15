@@ -13,10 +13,28 @@ CI_SESSION=
 CI_EXIT_SIGNAL=TERM
 CI_GUARD="$CI_ROOT/bin/crossink-ui"
 [ -x "$CI_GUARD" ] || CI_GUARD="$CI_ROOT/bin/crossink-pw1"
+case "${1:-}" in
+  ''|--ui|--recover)
+    mkdir -p "$CI_ROOT/logs" || exit 1
+    exec >> "$CI_ROOT/logs/launcher.log" 2>&1
+    date
+    echo "launcher_attempt mode=${1:-diagnostic} shell=$$ package=0.3.6"
+    ;;
+esac
+CI_GUARD_HELD=0
+release_operation() {
+  if [ "$CI_GUARD_HELD" = 1 ]; then
+    "$CI_GUARD" --session-unlock || return 1
+    CI_GUARD_HELD=0
+    exec 9>&-
+  fi
+}
 # Descriptor 9 is held only during setup or recovery, never during app wait.
 # All entry points use the same permanent kernel-lock inode.
 if [ "${1:-}" = --guarded ]; then
-  "$CI_GUARD" --session-check || exit 1
+  "$CI_GUARD" --session-check || { echo 'ERROR inherited operation guard invalid'; exit 1; }
+  CI_GUARD_HELD=1
+  trap release_operation 0
   shift
 elif [ "${1:-}" != --watchdog ]; then
   exec "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" "$@"
@@ -105,20 +123,53 @@ restore_bar() {
   return 1
 }
 
+wrapper_matches() {
+  [ -r "$CI_IDENTITY_PROC/$1/cmdline" ] || return 1
+  tr '\000' '\n' < "$CI_IDENTITY_PROC/$1/cmdline" | {
+    while IFS= read -r ci_arg; do
+      [ "$ci_arg" = "$CI_ROOT/runner.sh" ] && exit 0
+    done
+    exit 1
+  }
+}
 terminate_child() {
-  if [ -f "$CI_LOCK/child" ]; then
-    read -r ci_pid ci_started < "$CI_LOCK/child"
-    case "$ci_pid" in ''|*[!0-9]*) return ;; esac
+  ci_reader_pid=
+  ci_record="$CI_LOCK/child"
+  [ ! -f "$CI_LOCK/reader" ] || ci_record="$CI_LOCK/reader"
+  if [ -f "$ci_record" ]; then
+    read -r ci_pid ci_started < "$ci_record"
+    ci_reader_pid=$ci_pid
+    case "$ci_pid" in ''|*[!0-9]*) return 1 ;; esac
     if [ -n "$ci_started" ] && [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
-      if [ "$ci_name" = crossink-pw1 ] || [ "$ci_name" = crossink-ui ]; then
-        kill -"$CI_EXIT_SIGNAL" "$ci_pid" 2>/dev/null
-        sleep 2
-        if [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
-          case "$ci_name" in crossink-pw1|crossink-ui) kill -KILL "$ci_pid" 2>/dev/null ;; esac
-        fi
-      fi
+      case "$ci_name" in
+        crossink-pw1|crossink-ui)
+          echo "reader_termination pid=$ci_pid signal=$CI_EXIT_SIGNAL"
+          kill -"$CI_EXIT_SIGNAL" "$ci_pid" 2>/dev/null || :
+          sleep 2
+          if [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
+            case "$ci_name" in crossink-pw1|crossink-ui) kill -KILL "$ci_pid" 2>/dev/null || : ;; esac
+          fi
+          ;;
+        *) echo "ERROR unregistered reader/wrapper pid=$ci_pid name=$ci_name"; return 1 ;;
+      esac
     fi
   fi
+  if [ -f "$CI_LOCK/reader" ] && [ -f "$CI_LOCK/child" ]; then
+    read -r ci_pid ci_started < "$CI_LOCK/child"
+    if [ "$ci_pid" != "$ci_reader_pid" ] && [ -n "$ci_started" ] &&
+       [ "$(process_start "$ci_pid")" = "$ci_started" ] && read_process "$ci_pid"; then
+      case "$ci_name" in
+        sh|ash)
+          if wrapper_matches "$ci_pid"; then
+            echo "wrapper_termination pid=$ci_pid"
+            kill -KILL "$ci_pid" 2>/dev/null || :
+          else return 1; fi
+          ;;
+        *) return 1 ;;
+      esac
+    fi
+  fi
+  return 0
 }
 
 session_matches() {
@@ -133,7 +184,8 @@ release_session() {
   if [ "$1" = repaint ]; then
     "$CI_GUARD" --recover-display || return 1
   fi
-  rm -rf "$CI_LOCK"
+  rm -rf "$CI_LOCK" || return 1
+  echo "session_cleanup=complete"
 }
 recover() {
   [ -d "$CI_LOCK" ] || return 0
@@ -158,7 +210,7 @@ recover() {
   # redraw below chooses Home only while active; never restore a stale snapshot
   # over the stock sleep screen merely because recovery used SIGTERM.
   [ "${ci_profile:-}" != ui ] || CI_EXIT_SIGNAL=USR2
-  terminate_child
+  terminate_child || return 1
   release_session repaint
 }
 
@@ -187,7 +239,7 @@ if [ "${1:-}" = --cleanup ]; then
   CI_EXIT_SIGNAL=${3:-TERM}
   case "$CI_EXIT_SIGNAL" in TERM|USR2) ;; *) exit 1 ;; esac
   ci_repaint=no
-  if [ "${4:-}" = active ]; then terminate_child; ci_repaint=repaint; fi
+  if [ "${4:-}" = active ]; then terminate_child || exit 1; ci_repaint=repaint; fi
   case "${5:-1}" in 0) ;; *) ci_repaint=repaint ;; esac
   release_session "$ci_repaint"
   exit $?
@@ -209,8 +261,13 @@ fi
 
 mkdir -p "$CI_ROOT/state" "$CI_ROOT/logs" || exit 1
 if ! mkdir "$CI_LOCK" 2>/dev/null; then
-  echo 'ERROR CrossInk already running or stale lock; use Restore in KUAL'
-  exit 1
+  if owner_alive || legacy_owner_alive; then
+    echo 'ERROR CrossInk already running; refusing duplicate launch'
+    exit 1
+  fi
+  echo 'reopen=stale-session-recovery'
+  recover || exit 1
+  mkdir "$CI_LOCK" || exit 1
 fi
 ci_started=$(process_start "$$") || exit 1
 CI_SESSION="$$:$CI_BOOT:$ci_started"
@@ -239,7 +296,7 @@ cleanup() {
   fi
   # Cleanup retries transient contention; its token prevents a delayed old
   # exit from touching a replacement session restored in the meantime.
-  exec 9>&-
+  release_operation || return 1
   "$CI_GUARD" --session-guard "$CI_ROOT/runner.sh" --cleanup "$CI_SESSION" "$CI_EXIT_SIGNAL" "$ci_child_state" "$ci_result"
 }
 trap cleanup 0
@@ -253,7 +310,7 @@ trap '' HUP
 [ -f "$CI_ROOT/logs/$ci_log.log" ] && mv -f "$CI_ROOT/logs/$ci_log.log" "$CI_ROOT/logs/$ci_log.previous.log"
 exec >> "$CI_ROOT/logs/$ci_log.log" 2>&1
 date
-echo "launcher=CrossInk PW1 package 0.3.5 mode=$ci_log"
+echo "launcher=CrossInk PW1 package 0.3.6 mode=$ci_log"
 
 # Verify the ARM loader/runtime and device identities before pausing the UI.
 "$CI_ROOT/bin/$ci_binary" --version || exit 1
@@ -324,7 +381,7 @@ CI_CHILD_START=$ci_started
 echo "$CI_CHILD $ci_started" > "$CI_LOCK/child" || exit 1
 echo "launcher_identity shell=$$ child=$CI_CHILD child_start=$ci_started"
 read_process "$CI_CHILD" && echo "launcher_child name=$ci_name state=$ci_state"
-exec 9>&-
+release_operation || exit 1
 wait "$CI_CHILD"
 ci_result=$?
 CI_CHILD=

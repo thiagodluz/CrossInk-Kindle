@@ -13,6 +13,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "ProcessDescriptors.h"
+
 namespace kindle {
 namespace {
 // Match KOReader's stock CLI subscription on legacy Kindle firmware. A live
@@ -109,7 +111,7 @@ bool PowerMonitor::start(const char* command) {
                            const_cast<char*>("com.lab126.powerd"),
                            const_cast<char*>(powerEvents),
                            nullptr};
-      execve(command, arguments, environ);
+      if (closeInheritedDescriptors(execution[1])) execve(command, arguments, environ);
     }
     const int failure = errno;
     const auto ignored = write(execution[1], &failure, sizeof(failure));

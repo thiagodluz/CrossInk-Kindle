@@ -1,8 +1,22 @@
+## [Kindle PW1 TXT preview 0.3.6] - 2026-10-15
+
+### Fixed
+
+- Explicitly unlock the inherited operation-lock open-file description before app wait and after recovery. Closing descriptor 9 alone cannot release copies saved by a shell or inherited by helpers. Sanitize descriptors before stock query/subscriber exec, including shell duplicates. A delayed old unlock cannot unlock a replacement operation.
+- Register the actual reader PID/start identity under the operation guard. Forced recovery reaches the native app even when the PW1 shell keeps an intermediary process; terminate a verified wrapper only after handling its reader.
+- Wait up to five seconds for startup/cleanup contention and recover an abandoned session before reopening. Preserve recovery records when a live reader cannot be identified safely.
+- Record KUAL and runner entry before native preflight, including guard failures, so an unsuccessful opening has an earlier diagnostic trail.
+
+### Validation
+
+- Full host suite and 43 launcher scenarios passed, including intermediary shells, reopen after power exit, stale sessions, inherited helper descriptors and reopen during cleanup. ARM power/session/descriptor tests and identical host/ARM TXT pixels passed under QEMU with the legacy sysroot.
+- The 0.3.5 device log confirms the launcher signal now arrives and power save-and-exit succeeds. The user reported reopening failed and launcher.log was empty. Descriptor retention was reproduced locally; the exact failed PW1 launch is not established. Version 0.3.6 still needs a physical wake/reopen test. Restart once after updating to clear descriptors retained by pre-update processes; preserve books/progress.
+
 ## [Kindle PW1 TXT preview 0.3.5] - 2026-10-15
 
 ### Fixed
 
-- Serialize launcher setup, cleanup and KUAL recovery with a permanent kernel flock, released automatically on process death. Recovery cannot remove partially initialized records; delayed cleanup checks the session token before touching a replacement. Failed journal writes abort before pausing a process or hiding the bar. Cleanup retries transient contention instead of losing restoration.
+- Serialize launcher setup, cleanup and KUAL recovery with a permanent kernel flock, released after the last descriptor referencing its open-file description closes (inherited-copy handling corrected in 0.3.6). Recovery cannot remove partially initialized records; delayed cleanup checks the session token before touching a replacement. Failed journal writes abort before pausing a process or hiding the bar. Cleanup retries transient contention instead of losing restoration.
 - Bind the reader to the launcher's recorded boot/start identity at startup and verify it again before signaling. An intermediary parent or missing PID environment variable no longer invalidates a verified session. Log the environment PID, libc/kernel parent PIDs, owner and child identity for the PW1 retest; never signal a replacement session.
 - Close the display publication gate as soon as a power event arrives, arm launcher recovery, then drain an in-flight publication and join the worker. Queued frames cannot repaint the stock screen during shutdown. An ioctl already executing still needs to complete or be handled by the launcher deadline.
 - Request a bounded Home redraw after failed/forced exits only when powerd is active. Sleeping devices retain their stock screen; unknown state or failed redraw retains recovery records for retry. UI recovery signals a pixel handoff rather than restoring an opening snapshot.

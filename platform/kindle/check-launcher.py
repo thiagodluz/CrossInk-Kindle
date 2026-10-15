@@ -44,6 +44,7 @@ def main() -> None:
 #include "LauncherSession.h"
 int main(int argc,char** argv) {
  setvbuf(stdout,nullptr,_IOLBF,0);
+ if(argc==2 && !strcmp(argv[1],"--session-unlock")) return kindle::unlockSessionGuard() ? 0 : 1;
  if(argc==2 && !strcmp(argv[1],"--session-check")) return kindle::checkSessionGuard() ? 0 : 1;
  if(argc>=3 && !strcmp(argv[1],"--session-guard")) return kindle::guardSession(argv[2],argc-3,argv+3);
  if(argc==2 && !strcmp(argv[1],"--recover-display")) {
@@ -58,6 +59,19 @@ int main(int argc,char** argv) {
  }
  if(argc==3 && !strcmp(argv[1],"--status-bar")) {
    printf("mock_status_bar=%s\\n",argv[2]);
+   if(!strcmp(argv[2],"show") && getenv("MOCK_SHOW_BARRIER")) {
+     FILE* f=fopen(getenv("MOCK_SHOW_READY"),"w"); if(f){fputs("ready",f);fclose(f);}
+     while(access(getenv("MOCK_SHOW_BARRIER"),F_OK)) usleep(10000);
+   }
+   if(getenv("MOCK_DESCENDANT")) {
+     const pid_t daemon=fork();
+     if(daemon==0) {
+       close(0);close(1);close(2);
+       FILE* f=fopen(getenv("MOCK_DESCENDANT_READY"),"a"); if(f){fputs("ready\\n",f);fclose(f);}
+       for(unsigned i=0;i<2000 && access(getenv("MOCK_DESCENDANT_STOP"),F_OK);++i) usleep(10000);
+       _exit(0);
+     }
+   }
    if(!strcmp(argv[2],"hide") && getenv("MOCK_BAR_FAIL_HIDE")) return 17;
    if(!strcmp(argv[2],"show") && getenv("MOCK_BAR_FAIL_SHOW")) return 17;
    return 0;
@@ -68,12 +82,12 @@ int main(int argc,char** argv) {
  if(!strcmp(argv[1],"--diagnostic") || !strcmp(argv[1],"--app")) {
    puts("mock_app=started");
    const char* mode=getenv("MOCK_MODE");
-   if(mode && (!strcmp(mode,"child-power") || !strcmp(mode,"child-emergency"))) {
+   if(mode && (!strcmp(mode,"child-power") || !strcmp(mode,"child-emergency") || !strcmp(mode,"child-power-wrapper"))) {
      signal(SIGTERM,SIG_IGN); signal(SIGUSR2,SIG_IGN);
-     while(access(getenv("MOCK_REQUEST_READY"),F_OK)) usleep(10000);
      const char* identities=getenv("CROSSINK_IDENTITY_PROC_ROOT");
-     if(!kindle::captureLauncher(identities) ||
-        !kindle::notifyLauncher(!strcmp(mode,"child-power") ? SIGUSR2 : SIGUSR1,identities)) return 19;
+     if(!kindle::captureLauncher(identities) || !kindle::registerReader(identities)) return 19;
+     while(access(getenv("MOCK_REQUEST_READY"),F_OK)) usleep(10000);
+     if(!kindle::notifyLauncher(strcmp(mode,"child-emergency") ? SIGUSR2 : SIGUSR1,identities)) return 19;
      for(;;) pause();
    }
    if(mode && (!strcmp(mode,"stuck") || !strcmp(mode,"power-stuck"))) { signal(SIGTERM,SIG_IGN); signal(SIGUSR2,SIG_IGN); for(;;) pause(); }
@@ -85,8 +99,8 @@ int main(int argc,char** argv) {
 ''')
         mock = base / "crossink-pw1"
         subprocess.run(["g++", str(native), str(ROOT/"platform/kindle/LauncherSession.cpp"), "-I"+str(ROOT/"platform/kindle"), "-o", str(mock)], check=True)
-        cases = list(itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck", "child-power", "child-emergency", "setup-race", "pause-journal-fail")))
-        cases += [("ui",mode) for mode in ("bar-hide-fail","bar-show-fail","framework-stopped","bar-journal-fail","repaint-fail")]
+        cases = list(itertools.product(("diagnostic", "ui"), ("normal", "fail", "probe-fail", "interrupt", "recover", "emergency", "stale-pid", "stale-boot", "legacy-pid", "power", "power-stuck", "child-power", "child-emergency", "setup-race", "pause-journal-fail", "child-power-wrapper", "reopen", "stale-reopen")))
+        cases += [("ui",mode) for mode in ("bar-hide-fail","bar-show-fail","framework-stopped","bar-journal-fail","repaint-fail","helper-descendant","reopen-during-cleanup")]
         for profile, mode in cases:
             app = base / (profile+"-"+mode)
             binary_name = "crossink-ui" if profile=="ui" else "crossink-pw1"
@@ -122,6 +136,13 @@ int main(int argc,char** argv) {
                            CROSSINK_IDENTITY_PROC_ROOT=str(identities),
                            MOCK_REQUEST_READY=str(app/"send-request"),
                            MOCK_MODE="stuck" if mode == "emergency" else "wait" if mode in ("interrupt", "recover", "power") else mode)
+                if mode=="reopen-during-cleanup":
+                    env["MOCK_SHOW_BARRIER"]=str(app/"show-release")
+                    env["MOCK_SHOW_READY"]=str(app/"show-ready")
+                if mode=="helper-descendant":
+                    env["MOCK_DESCENDANT"]="1"
+                    env["MOCK_DESCENDANT_READY"]=str(app/"descendant-ready")
+                    env["MOCK_DESCENDANT_STOP"]=str(app/"descendant-stop")
                 if mode=="repaint-fail":
                     env["MOCK_MODE"]="fail"
                     env["MOCK_REPAINT_FAIL"]="1"
@@ -149,6 +170,14 @@ int main(int argc,char** argv) {
                                    env=env, check=True, capture_output=True, timeout=6)
                     assert not lock.exists(), "stale PID/boot lock survived recovery"
                     assert ui.poll() is None, "recovery killed unrelated owner PID"
+                if mode=="child-power-wrapper":
+                    source=(app/"runner.sh").read_text().replace('(exec 9>&-; exec "$CI_ROOT/bin/$ci_binary" "$ci_argument") &', '(exec 9>&-; "$CI_ROOT/bin/$ci_binary" "$ci_argument"; wait) &')
+                    (app/"runner.sh").write_text(source)
+                if mode=="stale-reopen":
+                    stale=app/"state/launch.lock"
+                    stale.mkdir(parents=True)
+                    (stale/"owner").write_text(str(ui.pid)+"\n")
+                    (stale/"identity").write_text("old-boot 1\n")
                 if mode=="setup-race":
                     source=(app/"runner.sh").read_text()
                     needle='ci_started=$(process_start "$$") || exit 1'
@@ -164,12 +193,20 @@ int main(int argc,char** argv) {
                         assert recovery.returncode==75, "concurrent recovery entered guarded setup"
                         assert (app/"state/launch.lock").is_dir(), "setup records removed"
                     (app/"setup-release").touch()
-                if mode in ("interrupt", "recover", "emergency", "power", "power-stuck", "child-power", "child-emergency"):
+                if mode in ("interrupt", "recover", "emergency", "power", "power-stuck", "child-power", "child-emergency", "child-power-wrapper"):
                     child_file = app / "state/launch.lock/child"
                     wait_for(child_file.exists, "diagnostic not started")
                     pid = int(child_file.read_text().split()[0])
                     (proc / str(pid)).mkdir()
-                    (proc / str(pid) / "status").write_text(f"Name:\t{binary_name}\nState:\tS (fixture)\n")
+                    (proc / str(pid) / "status").write_text(f"Name:\t{'sh' if mode=='child-power-wrapper' else binary_name}\nState:\tS (fixture)\n")
+                    if mode in ("child-power","child-emergency","child-power-wrapper"):
+                        wait_for((app/"state/launch.lock/reader").exists,"native reader not registered")
+                        reader_pid=int((app/"state/launch.lock/reader").read_text().split()[0])
+                        (proc/str(reader_pid)).mkdir(exist_ok=True)
+                        (proc/str(reader_pid)/"status").write_text(f"Name:\t{binary_name}\nState:\tS\n")
+                        if mode=="child-power-wrapper":
+                            assert reader_pid!=pid, "wrapper fixture exec optimized away"
+                            (identities/str(pid)/"cmdline").write_bytes(b'/bin/sh\0'+str(app/"runner.sh").encode()+b'\0--guarded\0')
                     before=child_file.read_bytes()
                     stale=subprocess.run(["/bin/sh",str(app/"runner.sh"),"--cleanup","old-session-token","TERM","active","143"],env=env,capture_output=True,timeout=4)
                     assert stale.returncode==0 and child_file.read_bytes()==before, "old cleanup touched replacement session"
@@ -186,7 +223,7 @@ int main(int argc,char** argv) {
                     second = subprocess.run(["/bin/sh", str(app / "runner.sh"), *arguments], env=env, capture_output=True, timeout=4)
                     assert second.returncode == 1, "duplicate launch accepted"
                     request_time=time.monotonic()
-                    if mode in ("child-power", "child-emergency"):
+                    if mode in ("child-power", "child-emergency", "child-power-wrapper"):
                         (app/"send-request").touch()
                     elif mode == "interrupt":
                         runner.terminate()
@@ -197,10 +234,18 @@ int main(int argc,char** argv) {
                     else:
                         subprocess.run(["/bin/sh", str(app / "runner.sh"), "--recover"],
                                        env=env, check=True, capture_output=True, timeout=6)
-                result = runner.wait(timeout=8)
-                if mode in ("child-power","child-emergency"):
+                if mode=="reopen-during-cleanup":
+                    wait_for((app/"show-ready").exists,"cleanup barrier not reached")
+                    next_env=dict(env);next_env.pop("MOCK_SHOW_BARRIER")
+                    reopening=subprocess.Popen(["/bin/sh",str(app/"runner.sh"),*arguments],env=next_env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    time.sleep(.2)
+                    assert reopening.poll() is None,"reopen refused instead of waiting for cleanup"
+                    (app/"show-release").touch()
+                    assert reopening.wait(timeout=12)==0,"immediate reopen failed after cleanup"
+                result = runner.wait(timeout=12)
+                if mode in ("child-power","child-emergency","child-power-wrapper"):
                     assert time.monotonic()-request_time<4.5, "app-to-launcher recovery exceeded grace window"
-                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0,"bar-hide-fail":1,"bar-show-fail":0,"framework-stopped":1,"child-power":0,"child-emergency":130,"setup-race":0,"pause-journal-fail":1,"bar-journal-fail":1,"repaint-fail":23}[mode]
+                expected = {"normal": 0, "fail": 23, "probe-fail": 1, "interrupt": 143, "recover": 143, "emergency": 130, "stale-pid": 0, "stale-boot": 0, "legacy-pid": 0, "power": 0, "power-stuck": 0,"bar-hide-fail":1,"bar-show-fail":0,"framework-stopped":1,"child-power":0,"child-emergency":130,"child-power-wrapper":0,"reopen":0,"stale-reopen":0,"helper-descendant":0,"reopen-during-cleanup":0,"setup-race":0,"pause-journal-fail":1,"bar-journal-fail":1,"repaint-fail":23}[mode]
                 assert result == expected, (mode, result, expected, (app / "logs" / (profile+".log")).read_text() if (app / "logs" / (profile+".log")).exists() else "no log")
                 resumed_size = heartbeat.stat().st_size
                 wait_for(lambda: heartbeat.stat().st_size > resumed_size, "UI not resumed")
@@ -237,12 +282,29 @@ int main(int argc,char** argv) {
                         assert "mock_app=started" not in log, "reader launched after failed preparation"
                     if mode in ("normal","fail","stale-pid","stale-boot","legacy-pid"):
                         assert "mock_power_state stage=before-release" in log
-                if mode in ("child-power","child-emergency"):
+                if mode in ("child-power","child-emergency","child-power-wrapper"):
                     assert "launcher_signal=" in log and "sent=1 owner=" in log, "production notifier did not signal launcher"
                 if mode in ("power", "power-stuck", "child-power"):
                     assert "power_handoff=launcher grace_seconds=2" in log, "power exit not acknowledged"
+                if mode in ("reopen","stale-reopen","helper-descendant"):
+                    second_env=dict(env);second_env.pop("MOCK_DESCENDANT",None)
+                    if mode=="helper-descendant":
+                        assert (app/"descendant-ready").exists(), "retained-descriptor helper not started"
+                    second=subprocess.run(["/bin/sh",str(app/"runner.sh"),*arguments],env=second_env,capture_output=True,timeout=12)
+                    assert second.returncode==0,("reopen failed",mode,second.stderr)
+                    assert not (app/"state/launch.lock").exists(),"reopened session not released"
+                if mode=="child-power-wrapper":
+                    assert "wrapper_termination pid=" in log, "shell intermediary not terminated"
+                assert (app/"logs/launcher.log").stat().st_size>0,"early launch attempt not logged"
                 print(f"launcher_check {profile}/{mode}=ok",flush=True)
+            except BaseException:
+                for name in ("launcher.log",profile+".log",profile+".previous.log"):
+                    path=app/"logs"/name
+                    if path.exists(): print(f"failure_evidence {profile}/{mode} {name}\n"+path.read_text(),flush=True)
+                raise
             finally:
+                (app/"descendant-stop").touch()
+                (app/"show-release").touch()
                 if runner and runner.poll() is None:
                     runner.kill()
                     runner.wait()

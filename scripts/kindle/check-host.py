@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-def run(*args):
-    subprocess.run([str(a) for a in args], cwd=ROOT, check=True, timeout=180)
+def run(*args, timeout=180):
+    subprocess.run([str(a) for a in args], cwd=ROOT, check=True, timeout=timeout)
 
 def main():
     build = runpy.run_path(str(ROOT / 'scripts/kindle/build-ui.py'))['build']
@@ -25,13 +25,14 @@ def main():
     run(display)
     power = output / 'power-checks'
     run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
-        'platform/kindle/KindlePower.cpp', 'platform/kindle/KindleSystem.cpp', 'platform/kindle/PowerChecks.cpp', '-o', power)
+        'platform/kindle/KindlePower.cpp', 'platform/kindle/KindleSystem.cpp', 'platform/kindle/ProcessDescriptors.cpp', 'platform/kindle/PowerChecks.cpp', '-o', power)
     run('python3', 'platform/kindle/check-power.py', '--binary', power)
     session = output / 'session-checks'
     run('g++', '-std=c++17', '-Wall', '-Wextra', '-Werror', '-pthread',
         'platform/kindle/LauncherSession.cpp', 'platform/kindle/SessionChecks.cpp', '-o', session)
     run('python3', 'platform/kindle/check-session.py', '--binary', session)
-    run('python3', 'platform/kindle/check-launcher.py')
+    run('python3', 'platform/kindle/check-descriptors.py', '--power-binary', power, '--session-binary', session)
+    run('python3', 'platform/kindle/check-launcher.py', timeout=240)
     ui = build(Path(), output / 'ui', ROOT / 'platform/kindle/app/PortApp.cpp', True)
     run('python3', 'platform/kindle/check-ui.py', '--binary', ui)
     native = build(Path(), output / 'native', ROOT / 'platform/kindle/NativeChecks.cpp', True)

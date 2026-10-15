@@ -1,4 +1,4 @@
-# CrossInk PW1 — prévia TXT 0.3.5
+# CrossInk PW1 — prévia TXT 0.3.6
 
 Esta etapa conecta o GfxRenderer, as fontes, os componentes FreeInkUI e o módulo
 Txt do CrossInk aos backends nativos do Paperwhite 1. Permite navegar por pastas,
@@ -33,100 +33,63 @@ contra caminhos que escapem dessa pasta de dados.
 
 Cada sessão desta prévia termina automaticamente após **5 minutos**. O
 supervisor encerra uma execução travada após **6 minutos** e retoma os processos
-que ele pausou. A saída por tempo limite e o gesto foram confirmados na 0.2.1.
-Na 0.3.4, o botão de repouso, o salvamento e a saída normal por evento de energia
-foram confirmados no aparelho. A recuperação de um travamento real ainda precisa
-ser validada; o log desse teste rejeitou o sinal enviado ao lançador.
-Se necessário, use KUAL → CrossInk PW1 →
-**Restaurar interface do Kindle**. Uma trava remanescente de um reinício pode
-ser removida por essa opção, mesmo que o PID tenha sido reutilizado.
-
-Para sair durante a sessão, **segure o canto superior direito por 5 segundos**
-(na área de aproximadamente 10% da largura e da altura). Soltar o dedo ou sair
-do canto cancela o gesto. O lançador tenta encerrar o aplicativo e força o
-encerramento após 2 segundos caso ele não responda; a interface do Kindle é
-retomada. Essa recuperação pode perder a posição ainda não salva. O gesto foi
-confirmado na 0.2.1; o encerramento forçado de um travamento real ainda precisa
-ser validado no PW1.
-
+que ele pausou. Para sair durante a leitura, segure o canto superior direito
+por cinco segundos, ou toque em **Sair**. A opção KUAL → CrossInk PW1 →
+**Restaurar interface do Kindle** tenta recuperar uma sessão interrompida.
 Não conecte o USB durante a sessão; saia antes.
 
-## Reteste da 0.3.5
+## Atualização e reteste da 0.3.6
 
-A 0.3.4 confirmou salvar e sair ao pressionar o botão de repouso. A 0.3.5 corrige
-a comunicação com o lançador e a concorrência entre abertura e recuperação;
-ainda precisa ser testada no PW1. Ao copiar a atualização, mescle as pastas e
-preserve `crossink/data`, onde ficam os livros e o progresso.
+Na 0.3.5, a abertura e o repouso funcionaram no PW1, e o log confirmou que o
+sinal chegou ao lançador. A reabertura falhou e `launcher.log` estava vazio.
+Um defeito de herança da trava foi reproduzido localmente; o ponto exato da
+falha no aparelho ainda não foi identificado.
 
-1. Abra o TXT e avance uma página. Pressione o botão de repouso uma vez.
-2. Desperte, reabra pelo KUAL e confira a página salva.
-3. Saia com **Sair** e confira a resposta da interface e a barra de status.
-4. Abra novamente e segure o canto superior direito por cinco segundos.
-5. Abra mais uma vez e deixe a sessão terminar pelo limite de cinco minutos.
-6. Copie `ui.log` e `ui.previous.log` após cada teste para preservar os resultados.
+A 0.3.6 libera a trava explicitamente, impede que auxiliares herdem descritores,
+registra o leitor real mesmo com um shell intermediário e registra a tentativa
+antes da preparação. Aguarda até cinco segundos se a abertura coincidir com a
+limpeza anterior. Esses caminhos passaram nos testes locais e ARM emulados;
+a confirmação no PW1 está pendente.
 
-O log deve mostrar `launcher_identity ... valid=1`, `launcher_signal=12 sent=1`
-e `power_handoff=launcher grace_seconds=2` no repouso; no gesto, o sinal é 10.
-Confirme visualmente que a tela de descanso fica correta e a barra não invade a
-leitura. Não é necessário provocar um travamento no aparelho.
+1. Instale conforme as instruções acima, mesclando as pastas e preservando
+   `crossink/data`.
+2. **Reinicie o Kindle uma vez após atualizar da 0.3.5.** Isso descarta
+   descritores que processos anteriores à atualização possam ter herdado.
+   Não apague `state/operation.lock` para tentar destravar.
+3. Abra o TXT, avance uma página e pressione o botão de repouso uma vez.
+4. Desperte e reabra pelo KUAL. Confira a página salva. Repita esse ciclo.
+5. Teste **Sair**, nova abertura, gesto do canto e encerramento por cinco minutos.
+6. Confira visualmente a tela de descanso e a barra de status. Copie
+   `crossink/logs/launcher.log`, `ui.log` e `ui.previous.log` depois do teste,
+   inclusive se alguma abertura falhar.
 
-Uma operação Restaurar durante a preparação pode retornar `session_guard=busy`;
-aguarde alguns segundos e tente novamente. Não apague os arquivos de estado
-manualmente durante uma sessão. Os limites de cinco/seis minutos continuam.
+Na abertura, procure `reader_identity ... registered=1` e
+`launcher_identity ... valid=1`. No repouso, procure `launcher_signal=12 sent=1`,
+`power_handoff=launcher grace_seconds=2` e o salvamento da página. No gesto,
+o sinal é 10. Não é necessário provocar um travamento no aparelho.
+Uma tentativa de Restaurar durante a preparação pode retornar
+`session_guard=busy`; aguarde alguns segundos e tente novamente.
 
-## Teste do botão liga/desliga — saída validada na 0.3.4
+## Comportamento do repouso
 
-1. Abra o TXT de exemplo e avance até a página 2.
-2. Pressione e solte o botão liga/desliga uma vez.
-3. O CrossInk deve salvar a página, encerrar e liberar a tela e o toque para o
-   sistema do Kindle. A tela de descanso é responsabilidade da Amazon.
-4. Aguarde alguns segundos e pressione o botão novamente para acordar.
-5. Abra KUAL → CrossInk PW1 → **Abrir CrossInk (previa TXT)**, reabra o mesmo
-   livro e confirme a retomada na página 2.
-6. Saia pelo botão Sair e envie `crossink/logs/ui.log` e `ui.previous.log`.
+O CrossInk salva, encerra e libera tela/toque para o sistema da Amazon.
+Ele **não permanece aberto em memória durante a suspensão** nesta etapa.
+Depois de acordar, é preciso abri-lo novamente pelo KUAL. A saída por evento de
+energia foi confirmada na 0.3.4 e na 0.3.5; a reabertura com a 0.3.6 ainda precisa
+de teste físico. A recuperação forçada de um travamento real também está pendente.
 
-O CrossInk não permanece aberto durante a suspensão nesta etapa. O monitor
-escuta eventos `powerd` com `/usr/bin/lipc-wait-event`, sem mudar as configurações
-de energia ou da luz frontal. Se o monitor falhar, a sessão termina e devolve
-os recursos ao Kindle. Se o comando estiver ausente, o lançador recusa a abertura
-antes de ocultar a barra; envie `crossink/logs/ui.log` nesse caso.
-
-O log deve mostrar `power_event=goingToScreenSaver ...`, seguido do salvamento,
-`reason=power` e das linhas `resumed`. Caso o aplicativo não responda ao pedido de
-saída, a proteção prevista é o encerramento forçado pelo lançador após 2 segundos;
-a última página pode não ter sido salva nesse caso. Essa proteção foi corrigida no código da 0.3.5 e ainda precisa de reteste no
-aparelho; o teste abaixo documenta a falha da 0.3.4.
-O auxiliar de eventos é encerrado e aguardado
+O monitor escuta `powerd` por `/usr/bin/lipc-wait-event`, sem alterar energia ou
+luz frontal. Se o monitor falhar, a sessão termina. Se o comando estiver ausente,
+a abertura é recusada antes de ocultar a barra. O auxiliar é encerrado e aguardado
 na saída normal e recebe um sinal de morte do kernel se o leitor for morto.
-A 0.3.3 abriu normalmente, mas o log recebeu zero bytes de eventos e mostrou
-`powerd` em `active` antes de devolver o controle ao Kindle. Isso direcionou a
-investigação para a pausa dos processos do sistema, sem provar a causa isolada.
 
-Na 0.3.4, `cvm` e `awesome` permanecem ativos. A barra de status fica oculta
-somente durante a sessão, pelo mecanismo de interface do Pillow usado no PW1.
-O estado de energia e a luz frontal continuam sob controle do Kindle. As
-chamadas de ocultar/restaurar a barra têm limite de um segundo. Se a ocultação
-falhar ou o framework já estiver pausado por outro aplicativo, a prévia não abre.
-
-O log deve incluir `framework_policy=cooperative`, `status_bar=hide`,
-`power_state stage=before-prepare`, `after-prepare` e `before-release` (esta
-última na saída normal). Ao sair, procure `status_bar=show`. A tela é entregue
-sem repor a imagem antiga quando o evento de energia provoca a saída. Uma falha
-ao restaurar a barra mantém o registro para tentar novamente pelo KUAL →
-**Restaurar interface do Kindle**.
-
-Em 14/10/2026, o usuário confirmou que o repouso funcionou na 0.3.4. O
-[`ui(5).log` preservado](../../docs/validation/pw1-0.3.4-power-ui.txt) registra
-`goingToScreenSaver`, página 4 salva, worker encerrado, tela liberada,
-`exit_status=0`, estado `screenSaver`, `volumd` retomado e `status_bar=show`
-com sucesso. Também registra `No matching parent launcher for signal=12`:
-a saída normal funcionou, mas a comunicação que ativa a recuperação forçada
-foi corrigida na 0.3.5, com validação física pendente. O log não comprova suspensão com o aplicativo aberto,
-despertar/reabrir na página 4 nem ausência visual de sobreposição da barra.
-
-A retomada depois do repouso da 0.3.4 ainda não foi documentada. No reteste da
-0.3.5, reabra o mesmo TXT e confira a página salva. Observe também se a barra invade a leitura e se volta na saída pelo botão
-**Sair**. Envie `ui.log` e `ui.previous.log` para documentar esses caminhos.
+`cvm` e `awesome` permanecem ativos. A barra de status é ocultada temporariamente
+por chamadas Pillow com limite de um segundo. Se a ocultação falhar ou o framework
+já estiver pausado, a prévia não abre. Ao sair, a barra é restaurada e `volumd`
+é retomado. Falhas na restauração preservam o registro para nova tentativa pelo
+KUAL. A recuperação pede a tela inicial somente quando `powerd` está ativo;
+em repouso, preserva a tela da Amazon. A aparência dessa transição precisa de
+observação no aparelho.
 
 ## Arquivos e limites atuais
 
@@ -164,6 +127,6 @@ Os relatórios do KUAL ficam em `crossink/logs/crossink-pw1-diagnostics-<data-ho
 O pacote inclui auditoria ELF, fontes/licenças aplicáveis e objetos para relink
 em `crossink/development`. A versão ARM é estática, ARMv7 Cortex-A8 softfp;
 não depende das bibliotecas instaladas no Kindle. Os testes locais e a emulação
-validam a lógica. A saída por botão de repouso da 0.3.4 foi confirmada no PW1;
+validam a lógica. A saída por botão de repouso foi confirmada na 0.3.4/0.3.5 no PW1;
 despertar/reabrir, recuperação forçada e os demais limites descritos acima
 continuam pendentes.

@@ -71,25 +71,38 @@ bool owner(long& pid, unsigned long long& started, const char* identityProc = "/
 
 int guardSession(const char* runner, int count, char** arguments) {
   const auto base = root();
-  if (base.empty() || base[0] != '/' || base + "/runner.sh" != runner) return 2;
+  if (base.empty() || base[0] != '/' || base + "/runner.sh" != runner) {
+    std::fprintf(stderr, "session_guard=failed stage=path\n");
+    return 2;
+  }
   const auto state = base + "/state";
-  if (mkdir(state.c_str(), 0775) != 0 && errno != EEXIST) return 1;
+  if (mkdir(state.c_str(), 0775) != 0 && errno != EEXIST) {
+    std::perror("session guard mkdir");
+    return 1;
+  }
   // Never unlink this inode: unlinking a held flock would allow a second lock.
   const int fd = open((state + "/operation.lock").c_str(), O_CREAT | O_RDWR | O_NOFOLLOW, 0600);
-  if (fd < 0) return 1;
+  if (fd < 0) {
+    std::perror("session guard open");
+    return 1;
+  }
   struct stat info{};
   if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != geteuid() || info.st_nlink != 1) {
+    std::fprintf(stderr, "session_guard=failed stage=metadata errno=%d\n", errno);
     close(fd);
     return 1;
   }
   int locked = -1;
   const bool cleanup = count > 0 && !std::strcmp(arguments[0], "--cleanup");
+  const bool startup = count == 0 || (count == 1 && (!*arguments[0] || !std::strcmp(arguments[0], "--ui")));
+  const unsigned attempts = cleanup ? 100U : startup ? 50U : 1U;
   // Cleanup must not be lost merely because a duplicate launch briefly owns
   // the guard. Interactive recovery stays nonblocking; cleanup retries boundedly.
-  for (unsigned attempt = 0; attempt < (cleanup ? 100U : 1U); ++attempt) {
+  for (unsigned attempt = 0; attempt < attempts; ++attempt) {
     locked = flock(fd, LOCK_EX | LOCK_NB);
     if (locked == 0 || (errno != EWOULDBLOCK && errno != EINTR)) break;
-    if (cleanup) usleep(100000);
+    if (startup && attempt == 0) std::fprintf(stderr, "session_guard=waiting mode=startup\n");
+    if (attempts > 1) usleep(100000);
   }
   if (locked != 0) {
     std::fprintf(stderr, "session_guard=busy; another setup/recovery is in progress\n");
@@ -134,6 +147,25 @@ bool checkSessionGuard() {
                   held.st_uid == geteuid() && held.st_nlink == 1 && held.st_dev == current.st_dev &&
                   held.st_ino == current.st_ino && flock(9, LOCK_EX | LOCK_NB) == 0;
   close(fd);
+  if (!ok) std::fprintf(stderr, "session_guard_check=failed fd=9 errno=%d\n", errno);
+  return ok;
+}
+bool unlockSessionGuard() {
+  struct stat held{}, current{};
+  const int fd = open((root() + "/state/operation.lock").c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0) {
+    std::perror("session unlock open");
+    return false;
+  }
+  // Do not acquire here: a delayed old shell must never acquire and release
+  // a replacement operation. LOCK_UN applies only to this inherited open-file
+  // description, including all copies saved by the legacy shell.
+  const bool valid = fstat(9, &held) == 0 && fstat(fd, &current) == 0 && S_ISREG(held.st_mode) &&
+                     held.st_uid == geteuid() && held.st_nlink == 1 && held.st_dev == current.st_dev &&
+                     held.st_ino == current.st_ino;
+  const bool ok = valid && flock(9, LOCK_UN) == 0;
+  close(fd);
+  if (!ok) std::fprintf(stderr, "session_guard_unlock=failed fd=9 valid=%d errno=%d\n", valid, errno);
   return ok;
 }
 bool notifyLauncher(int signal, const char* identityProc) {
@@ -159,5 +191,51 @@ bool captureLauncher(const char* identityProc) {
   capturedOwner = pid;
   capturedStart = started;
   return true;
+}
+bool registerReader(const char* identityProc) {
+  const std::string state = root() + "/state/";
+  const int guard = open((state + "operation.lock").c_str(), O_RDWR | O_NOFOLLOW | O_CLOEXEC);
+  if (guard < 0) {
+    std::perror("reader registration guard");
+    return false;
+  }
+  bool acquired = false;
+  for (unsigned i = 0; i < 100; ++i) {
+    if (flock(guard, LOCK_EX | LOCK_NB) == 0) {
+      acquired = true;
+      break;
+    }
+    if (errno != EWOULDBLOCK && errno != EINTR) break;
+    usleep(20000);
+  }
+  long pid = -1;
+  unsigned long long started = 0, selfStart = 0;
+  bool ok = acquired && owner(pid, started, identityProc) && pid == capturedOwner && started == capturedStart &&
+            startTime(getpid(), selfStart, identityProc);
+  const auto temporary = state + "launch.lock/reader-" + std::to_string(getpid());
+  if (ok) {
+    const int record = open(temporary.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (record < 0)
+      ok = false;
+    else {
+      char line[96];
+      const int length = std::snprintf(line, sizeof(line), "%ld %llu\n", static_cast<long>(getpid()), selfStart);
+      size_t written = 0;
+      while (written < static_cast<size_t>(length)) {
+        const auto count = write(record, line + written, length - written);
+        if (count < 0 && errno == EINTR) continue;
+        if (count <= 0) break;
+        written += count;
+      }
+      ok = written == static_cast<size_t>(length) && fsync(record) == 0;
+      if (close(record) != 0) ok = false;
+      if (ok) ok = rename(temporary.c_str(), (state + "launch.lock/reader").c_str()) == 0;
+      if (!ok) unlink(temporary.c_str());
+    }
+  }
+  close(guard);
+  std::printf("reader_identity pid=%ld start=%llu parent=%ld owner=%ld registered=%d\n", static_cast<long>(getpid()),
+              selfStart, static_cast<long>(getppid()), pid, ok);
+  return ok;
 }
 }  // namespace kindle

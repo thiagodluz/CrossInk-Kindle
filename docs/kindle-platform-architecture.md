@@ -481,14 +481,15 @@ overlays, or restoration after a separate normal Exit action. Earlier 0.2.1
 progress/normal-exit validation remains separate evidence.
 
 
-### 0.3.5 lifecycle recovery corrections — hardware retest pending
+### 0.3.5 lifecycle recovery corrections
 
 `LauncherSession` acquires a kernel flock on the permanent
 `state/operation.lock` inode and execs the shell with descriptor 9. The runner
 verifies that descriptor before entering a guarded phase. Setup, cleanup,
 Restore and token-qualified watchdog recovery share that lock. The app and
 watchdog close descriptor 9 before exec, and the runner releases it before
-waiting for the reader. Kernel owner death releases the lock. Never unlink
+waiting for the reader. The lock releases only when the last descriptor for its
+open-file description closes; 0.3.6 corrects inherited-copy handling. Never unlink
 operation.lock: doing so could create two independently locked inodes.
 
 A Restore during setup refuses with status 75. Cleanup instead retries brief
@@ -528,3 +529,41 @@ wake/reopen, normal Exit, corner hold and the session timeout on the PW1;
 0.2.1 exit validation and 0.3.4 power validation do not prove these new paths.
 
 Automated validation and its limits: [0.3.5 checks](validation/pw1-0.3.5-checks.md).
+
+### 0.3.5 device evidence and 0.3.6 reopen corrections — 2026-10-15
+
+The user's `ui(6).log` is preserved byte-for-byte as
+[pw1-0.3.5-power-ui.txt](validation/pw1-0.3.5-power-ui.txt), SHA-256
+`1647b09466f7204c624bcd25ee3b3348f05e4191ca2e3842b7a61974175afca5`.
+It confirms launcher owner 24531 and intermediary `sh` 24560, successful native
+notification (`launcher_signal=12 sent=1`), page 2 saved, power handoff, reader
+exit, volumd resumption, successful bar show and skipped Home while screenSaver.
+The user reports opening/sleep succeeded but reopening failed; launcher.log was
+empty. No failed-launch trace was supplied. The previous-log attachment was
+0.3.4 evidence, not a second 0.3.5 launch. Forced recovery of a stuck native reader
+and visual status-bar behavior remain unvalidated on hardware.
+
+A controlled reproduction using the 0.3.5 production stock-command path showed
+a helper descendant could inherit the operation flock, outlive its direct
+parent and leave a subsequent guard attempt returning 75. This proves a local
+defect; it does not establish the exact failed PW1 opening stage.
+
+0.3.6 explicitly issues LOCK_UN on the inherited open-file description before
+waiting and at guarded exits. It never reacquires as part of unlock, so a delayed
+old unlock cannot affect a replacement operation. Before exec, stock query and
+subscriber children close all descriptors above stderr, except the subscriber's
+CLOEXEC error pipe. Raw bounded getdents64 avoids allocation between fork/exec
+and includes any legacy-shell duplicates, not just fd 9.
+
+The native reader registers its own PID/start identity under the operation guard
+before acquiring device resources. Recovery prefers this identity over `$!`,
+which was a shell on the PW1. A verified sh/ash wrapper can then be terminated;
+unrecognized live identities retain recovery records. Startup waits up to five
+seconds for cleanup and automatically recovers an abandoned session under the
+same permanent guard. KUAL/runner log entry now precedes native preflight.
+
+Restart once after installing over 0.3.5 to discard descriptors retained by old
+processes; do not delete the permanent lock inode or reading data. Host and ARM
+checks are documented in [0.3.6 checks](validation/pw1-0.3.6-checks.md).
+Power/wake/reopen still requires a 0.3.6 physical test. Session/watchdog limits
+remain five/six minutes and the app still saves and exits for stock sleep.
